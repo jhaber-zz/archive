@@ -1,4 +1,7 @@
-# Charter-school-identities
+# School choice as ideological differentiation:
+## Charter school identities and outcomes in the accountability era
+(Working title)
+
 Data and code related to my dissertation research on charter school identities as analyzed from mission statements (MSs) on their public websites. Most of the code is in Python 3 and delivered as Jupyter Notebooks.
 
 Identities will be categorized using text analytic methods including Natural Language Processing (NLP; e.g., distinctive words, concordances), custom dictionaries, and unsupervised approaches (e.g., Structural Topic Models). The next step after that is to use statistical regression to connect identity patterns with community characteristics (e.g., class, race, political leanings).

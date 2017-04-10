@@ -8,4 +8,6 @@ Identities will be categorized using text analytic methods including Natural Lan
 
 At present this research is cross-sectional, looking at the population of currently open U.S. charter schools, but plans are in the works to get longitudinal MS data using the Internet Archive. These data will be used to examine survival and geographic dispersion of the different identity categories over time.
 
+See a static pre-registration of this project with the Open Science Foundation [here.](https://osf.io/zgh5u/)
+
 If you have questions, exciting ideas or comments, or want to congratulate me on something, do email me at jhaber@berkeley.edu

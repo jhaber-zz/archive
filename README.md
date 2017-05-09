@@ -8,6 +8,6 @@ I will categorize identities using text analytic methods including Natural Langu
 
 At present this research is cross-sectional, looking at the population of currently open U.S. charter schools, but plans are in the works to get longitudinal MS data using the Internet Archive. I will use these data to examine survival and geographic dispersion of the different identity categories over time.
 
-For lots more details on my data and method, see my [static April 2017 pre-registration with the Open Science Foundation](https://osf.io/zgh5u/), especially the [Prereg Challenge form](https://osf.io/zgh5u/register/565fb3678c5e4a66b5582f67).
+For lots more details on my data and method, see my [April 2017 pre-registration with the Open Science Foundation](https://osf.io/zgh5u/), especially the [Prereg Challenge form](https://osf.io/zgh5u/register/565fb3678c5e4a66b5582f67).
 
 If you have questions, exciting ideas or comments, or want to congratulate me on something, do email me at jhaber@berkeley.edu. Thanks!

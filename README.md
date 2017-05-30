@@ -2,12 +2,12 @@
 ## Charter school identities and outcomes in the accountability era
 (Working title)
 
-Data and code related to my dissertation research on charter school identities as analyzed from mission statements (MSs) on their public websites. Most of the code is in Python 3 and delivered as Jupyter Notebooks.
+This repo is for data and code related to my dissertation research on charter school identities as analyzed from mission statements (MSs) on their public websites. Most of the code is in Python 3 Jupyter Notebooks.
 
-Identities will be categorized using text analytic methods including Natural Language Processing (NLP; e.g., distinctive words, concordances), custom dictionaries, and unsupervised approaches (e.g., Structural Topic Models). The next step after that is to use statistical regression to connect identity patterns with community characteristics (e.g., class, race, political leanings).
+I will categorize identities using text analytic methods including Natural Language Processing (NLP; e.g., distinctive words, concordances), custom dictionaries, and unsupervised approaches (e.g., Structural Topic Models, Word Embeddings). The next step after that is to use statistical regression to connect identity patterns with community characteristics (e.g., class, race, political leanings).
 
-At present this research is cross-sectional, looking at the population of currently open U.S. charter schools, but plans are in the works to get longitudinal MS data using the Internet Archive. These data will be used to examine survival and geographic dispersion of the different identity categories over time.
+At present this research is cross-sectional, looking at the population of currently open U.S. charter schools, but plans are in the works to get longitudinal MS data using the Internet Archive. I will use these data to examine survival and geographic dispersion of the different identity categories over time.
 
-See a static pre-registration of this project with the Open Science Foundation [here.](https://osf.io/zgh5u/)--especially the linked "Registration Form: [Prereg Challenge](https://osf.io/zgh5u/register/565fb3678c5e4a66b5582f67)".
+For lots more details on my data and method, see my [April 2017 pre-registration with the Open Science Foundation](https://osf.io/zgh5u/), especially the [Prereg Challenge form](https://osf.io/zgh5u/register/565fb3678c5e4a66b5582f67).
 
-If you have questions, exciting ideas or comments, or want to congratulate me on something, do email me at jhaber@berkeley.edu
+If you have questions, exciting ideas or comments, or want to congratulate me on something, do email me at jhaber@berkeley.edu. Thanks!

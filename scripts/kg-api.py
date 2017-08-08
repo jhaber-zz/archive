@@ -18,21 +18,24 @@ def main(query):
 
     params = {
         'query': query,
-        'limit': 5,
+        'limit': 10,
         'indent': True,
         'key': api_key,
         }
 
-    url = service_url + '?' + urllib.parse.urlencode(params) # TODO: Use requests
-    print("URL is " + url)
+    url = service_url + '?' + urllib.parse.urlencode(params)
+    print("Requesting knowledge graph content using " + url)
+    response = json.loads(requests.get(url, auth=HTTPDigestAuth('user', 'pass'), headers= {'User-Agent':"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36"}).text)
+    
+    #NOTE previous approach, using urllib:
     #print("\nRunning json.loads on...\n\n" + str(urllib.request.urlopen(url).read()))
     #response = json.loads(urllib.request.urlopen(url).read().decode("utf-8"))
-    response = requests.get(url, auth=HTTPDigestAuth('user', 'pass'), headers= {'User-Agent':"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36"}).content
 
     # Parsing the response # TODO: Log all responses
     print('Displaying results...' + ' (limit: ' + str(params['limit']) + ')\n')
-    print(response)
-    '''for element in response['itemListElement']:
+    #print(response)
+    
+    for element in response['itemListElement']:
         try:
             types = str(", ".join([n for n in element['result']['@type']]))
         except KeyError:
@@ -70,7 +73,7 @@ def main(query):
                 + '\n' + ' - identifier: ' + mid \
                 + '\n' + ' - url: ' + url \
                 + '\n' + ' - resultScore: ' + score \
-                + '\n')'''
+                + '\n')
 
 
 if __name__ == '__main__':

@@ -33,9 +33,10 @@ def main(query):
 
     # Parsing the response # TODO: Log all responses
     print('Displaying results...' + ' (limit: ' + str(params['limit']) + ')\n')
-    #print(response)
+    #print(response, '\n')
     
     for element in response['itemListElement']:
+        #print(element, '\n')
         try:
             types = str(", ".join([n for n in element['result']['@type']]))
         except KeyError:

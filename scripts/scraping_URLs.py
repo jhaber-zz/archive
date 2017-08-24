@@ -51,17 +51,17 @@ with open('../bad_sites.csv', 'r', encoding = 'utf-8') as csvfile:
 
 sample = []  # make empty list in which to store the dictionaries
 
-try:  # first, check if modified file (with some data written already) is available on disk
-    with open('../sample.csv', 'r', encoding = 'utf-8')    as csvfile: # open file                      
-        reader = csv.DictReader(csvfile)  # create a reader
-        for row in reader:  # loop through rows
-            sample.append(row)  # append each row to the list
+if os.path.exists('../sample.csv'):  # first, check if modified file (with some data written already) is available on disk
+    file_path = '../sample.csv'
+else:  # use original data if no existing results are available on disk
+    file_path = '../charter_URLs_Apr17.csv'
 
-except:  # use original data if no existing results are available on disk
-    with open('../charter_URLs_Apr17.csv', 'r', encoding = 'Latin-1')    as csvfile: # open file                      
-        reader = csv.DictReader(csvfile)  # create a reader
-        for row in reader:  # loop through rows
-            sample.append(row)  # append each row to the list
+with open(file_path, 'r', encoding = 'utf-8')\
+as csvfile: # open file                      
+    print('  Reading in ' + str(file_path) + ' ...')
+    reader = csv.DictReader(csvfile)  # create a reader
+    for row in reader:  # loop through rows
+        sample.append(row)  # append each row to the list
 
 
 # Create new "URL" variable for each school, without overwriting any with data there already:
@@ -72,6 +72,19 @@ for school in sample:
         
     except (KeyError, NameError):
         school["URL"] = ""
+
+        
+def count_left(list_of_dicts, varname):
+    '''This helper function determines how many dicts in list_of_dicts don't have a valid key/value pair with key varname.'''
+    
+    count = 0
+    for school in list_of_dicts:
+        if school[varname] == "" or school[varname] == None:
+            count += 1
+
+    print(str(count) + " schools in this data are missing " + str(varname) + "s.")
+
+count_left(sample, 'URL')
 
 
 # Take a look at the first entry's contents and the variables list in our sample (a list of dictionaries)
@@ -111,7 +124,7 @@ def getURL(school_name, address, bad_sites_list, manual_url, known_urls):
     numgoo = 20  # define number of google results to collect for method #2
     
     search_terms = school_name + " " + address
-    print("Getting URL for", name + ", " + address + "...")    # show school name and address
+    print("Getting URL for", school_name + ", " + address + "...")    # show school name & address
     
     
     
@@ -134,30 +147,34 @@ def getURL(school_name, address, bad_sites_list, manual_url, known_urls):
 
                 if any(domain in url for domain in bad_sites_list):
                     k+=1    # If this url is in bad_sites_list, add 1 to counter and move on
+                    print("  URL in Google Places API is a bad site. Moving on.")
 
                 else:
                     good_url = url
                     known_urls.append(good_url)
+                    print("    Success! URL obtained from Google Places API with " + str(k) + " bad URLs avoided.")
                     
-                    # For testing/ debugging purposes:
                     '''
-                    print("SUCCESS!: Website discovered using Google Places API.")
-                    print("VALIDITY CHECK: Is the discovered URL of " + good_url + \
+                    # For testing/ debugging purposes:
+                    
+                    print("  VALIDITY CHECK: Is the discovered URL of " + good_url + \
                           " consistent with the known URL of " + manual_url + " ?")
-                    print("Also, is the discovered name + address of " + found_name + " " + found_address + \
+                    print("  Also, is the discovered name + address of " + found_name + " " + found_address + \
                           " consistent with the known name/address of: " + search_terms + " ?")
                     '''
                     
                     if manual_url != "":
                         if manual_url == good_url:
-                            print("Awesome! The known and discovered URLs are the SAME!")
+                            print("    Awesome! The known and discovered URLs are the SAME!")
                             
                     return(k, good_url)  # Returns valid URL of the Place discovered in Google Places API
         
             except:  # No URL in the Google database? Then try next API result or move on to Google searching.
+                print("  No URL available through Google Places API. Moving on to Google search.")
                 pass
     
     except:
+        print("  Google Places API search failed. Moving on to Google search.")
         pass
     
     
@@ -165,71 +182,125 @@ def getURL(school_name, address, bad_sites_list, manual_url, known_urls):
     ## SECOND URL-SCRAPE ATTEMPT: FILTERED GOOGLE SEARCH
     # Automate Google search and take first result that doesn't have a bad_sites_list element in it.
     
-    # Grab first numgoo Google results (URLs):
-    new_urls = list(search(search_terms, num=numgoo, pause=5.0, stop=10))
     
     # Loop through google search output to find first good result:
-    for url in new_urls:
-        if any(domain in url for domain in bad_sites_list):
-            k+=1    # If this url is in bad_sites_list, add 1 to counter and move on
-        else:
-            good_url = url
-            known_urls.append(good_url)
-            break    # Exit for loop after first good url is found
-            
+    try:
+        new_urls = list(search(search_terms, stop=numgoo, pause=5.0))  # Grab first numgoo Google results (URLs)
+        print("  Google search completed OK.")
+        
+        for url in new_urls:
+            if any(domain in url for domain in bad_sites_list):
+                k+=1    # If this url is in bad_sites_list, add 1 to counter and move on
+                print("  Bad site detected. Moving on.")
+            else:
+                good_url = url
+                known_urls.append(good_url)
+                print("    Success! URL obtained by Google search with " + str(k) + " bad URLs avoided.")
+                break    # Exit for loop after first good url is found
+                
+    
+    except:
+        print("  Problem with collecting Google search results. Try this by hand instead.")
             
         
-    ## For testing/ debugging purposes:
     '''
+    # For testing/ debugging purposes:
+    
     if k>2:  # Print warning messages depending on number of bad sites preceding good_url
-        print("WARNING!! CHECK THIS URL!: " + good_url + \
+        print("  WARNING!! CHECK THIS URL!: " + good_url + \
               "\n" + str(k) + " bad Google results have been omitted.")
     if k>1:
         print(str(k) + " bad Google results have been omitted. Check this URL!")
     elif k>0:
         print(str(k) + " bad Google result has been omitted. Check this URL!")
     else: 
-        print("No bad sites detected. Reliable URL!")
+        print("  No bad sites detected. Reliable URL!")
     '''
     
     
     if manual_url != "":
         if manual_url == good_url:
-            print("Awesome! The known and discovered URLs are the SAME!")
+            print("    Awesome! The known and discovered URLs are the SAME!")
     
     if good_url == "":
-        print("WARNING! No good URL found via API or google search, school is probably CLOSED!")
+        print("  WARNING! No good URL found via API or google search.\n")
     
     return(k, good_url)
 
 
-numschools = 0
+numschools = 0  # initialize scraping counter
 known_URLs = []  # initialize list of known URLs
 
+keys = sample[0].keys()  # define keys for writing function
+fname = "../sample.csv"  # define file name for writing function
 
+
+def dicts_to_csv(list_of_dicts, file_name, header):
+    '''This helper function writes a list of dictionaries to file_name.csv, with column names given in header.'''
+    
+    with open(file_name, 'w') as output_file:
+        print("Saving to " + str(file_name) + "...")
+        dict_writer = csv.DictWriter(output_file, header)
+        dict_writer.writeheader()
+        dict_writer.writerows(list_of_dicts)
+        
+
+'''
 # Now to call the above function and actually scrape these things!
 for school in sample: # loop through list of schools
     if school["URL"] == "":  # if URL is missing, fill that in by scraping
-        numschools += 1
-        school["NUM_BAD_URLS"], school["URL"] = "", "" # start with empty strings
-        school["NUM_BAD_URLS"], school["URL"] = getURL(school["SCH_NAME"], school["ADDRESS"], bad_sites, school["MANUAL_URL"], known_URLs)
+        try:
+            numschools += 1
+            school["NUM_BAD_URLS"], school["URL"] = "", "" # start with empty strings
+            school["NUM_BAD_URLS"], school["URL"] = getURL(school["SCH_NAME"], school["ADDRESS"], bad_sites, school["MANUAL_URL"], known_URLs)
+        except:  # Save sample to file (can continue to load and add to it)
+            dicts_to_csv(sample, fname, keys)
     
     else:
         if school["URL"]:
             pass  # If URL exists, don't bother scraping it again
 
-        else:  # If URL hasn't been defined, then scrape it!
-            numschools += 1
-            school["NUM_BAD_URLS"], school["URL"] = "", "" # start with empty strings
-            school["NUM_BAD_URLS"], school["URL"] = getURL(school["SCH_NAME"], school["ADDRESS"], bad_sites, school["MANUAL_URL"], known_URLs)
+        else:  # If URL doesn't yet have content, then scrape it!
+            try:
+                numschools += 1
+                school["NUM_BAD_URLS"], school["URL"] = "", "" # start with empty strings
+                school["NUM_BAD_URLS"], school["URL"] = getURL(school["SCH_NAME"], school["ADDRESS"], bad_sites, school["MANUAL_URL"], known_URLs)
+            except:  # Save sample to file (can continue to load and add to it)
+                dicts_to_csv(sample, fname, keys)
 
 print("\n\nURLs discovered for " + str(numschools) + " schools.")
 
+dicts_to_csv(sample, fname, keys)
+'''
 
-# Save sample to file (can continue to load and add to it):
-keys = sample[0].keys()
+# different approach for 75 remaining sites--do them by hand!
 
-with open('../sample.csv', 'w') as output_file:
-    dict_writer = csv.DictWriter(output_file, keys)
-    dict_writer.writeheader()
-    dict_writer.writerows(sample)
+for school in sample:
+    if school["URL"] == "":
+        k = 0  # initialize counter for number of URLs skipped
+        school["NUM_BAD_URLS"] = ""
+
+        print("Scraping URL for " + school["SEARCH"] + "...")
+        urls_list = list(search(school["SEARCH"], stop=20, pause=10.0))
+        print("  URLs list collected successfully!")
+
+        for url in urls_list:
+            if any(domain in url for domain in bad_sites):
+                k+=1    # If this url is in bad_sites_list, add 1 to counter and move on
+                print("  Bad site detected. Moving on.")
+            else:
+                good_url = url
+                print("    Success! URL obtained by Google search with " + str(k) + " bad URLs avoided.")
+
+                school["URL"] = good_url
+                school["NUM_BAD_URLS"] = k
+                
+                dicts_to_csv(sample, fname, keys)
+                count_left(sample, 'URL')
+                break    # Exit for loop after first good url is found                               
+                                           
+    else:
+        pass
+
+dicts_to_csv(sample, fname, keys)
+count_left(sample, 'URL')

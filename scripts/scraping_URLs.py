@@ -39,6 +39,17 @@ google_places = GooglePlaces(places_api_key)
 # but that an automated Google search might return...
 # and we might thus accidentally spider unless we filter them out (as below)!
 
+
+def dicts_to_csv(list_of_dicts, file_name, header):
+    '''This helper function writes a list of dictionaries to file_name.csv, with column names given in header.'''
+    
+    with open(file_name, 'w') as output_file:
+        print("Saving to " + str(file_name) + " ...")
+        dict_writer = csv.DictWriter(output_file, header)
+        dict_writer.writeheader()
+        dict_writer.writerows(list_of_dicts)
+        
+
 bad_sites = []
 with open('../bad_sites.csv', 'r', encoding = 'utf-8') as csvfile:
     for row in csvfile:
@@ -64,7 +75,7 @@ as csvfile: # open file
         sample.append(row)  # append each row to the list
 
 
-# Create new "URL" variable for each school, without overwriting any with data there already:
+# Create new "URL" and "NUM_BAD_URLS" variables for each school, without overwriting any with data there already:
 for school in sample:
     try:
         if school["URL"]:
@@ -72,6 +83,14 @@ for school in sample:
         
     except (KeyError, NameError):
         school["URL"] = ""
+
+for school in sample:
+    try:
+        if school["NUM_BAD_URLS"]:
+            pass
+        
+    except (KeyError, NameError):
+        school["NUM_BAD_URLS"] = ""
 
         
 def count_left(list_of_dicts, varname):
@@ -94,7 +113,7 @@ print(sample[1].keys())
 
 # ## Getting URLs
 
-def getURL(school_name, address, bad_sites_list, manual_url, known_urls):
+def getURL(school_name, address, bad_sites_list, manual_url):
     
     '''This function finds the one best URL for a school using two methods:
     
@@ -122,6 +141,7 @@ def getURL(school_name, address, bad_sites_list, manual_url, known_urls):
     
     radsearch = 15000  # define radius of Google Places API search, in km
     numgoo = 20  # define number of google results to collect for method #2
+    wait_time = 20.0  # define length of pause between Google searches (longer is better for big catches like this)
     
     search_terms = school_name + " " + address
     print("Getting URL for", school_name + ", " + address + "...")    # show school name & address
@@ -147,11 +167,10 @@ def getURL(school_name, address, bad_sites_list, manual_url, known_urls):
 
                 if any(domain in url for domain in bad_sites_list):
                     k+=1    # If this url is in bad_sites_list, add 1 to counter and move on
-                    print("  URL in Google Places API is a bad site. Moving on.")
+                    #print("  URL in Google Places API is a bad site. Moving on.")
 
                 else:
                     good_url = url
-                    known_urls.append(good_url)
                     print("    Success! URL obtained from Google Places API with " + str(k) + " bad URLs avoided.")
                     
                     '''
@@ -170,7 +189,7 @@ def getURL(school_name, address, bad_sites_list, manual_url, known_urls):
                     return(k, good_url)  # Returns valid URL of the Place discovered in Google Places API
         
             except:  # No URL in the Google database? Then try next API result or move on to Google searching.
-                print("  No URL available through Google Places API. Moving on to Google search.")
+                print("  Error collecting URL from Google Places API. Moving on.")
                 pass
     
     except:
@@ -185,16 +204,15 @@ def getURL(school_name, address, bad_sites_list, manual_url, known_urls):
     
     # Loop through google search output to find first good result:
     try:
-        new_urls = list(search(search_terms, stop=numgoo, pause=5.0))  # Grab first numgoo Google results (URLs)
-        print("  Google search completed OK.")
+        new_urls = list(search(search_terms, stop=numgoo, pause=wait_time))  # Grab first numgoo Google results (URLs)
+        print("  Successfully collected Google search results.")
         
         for url in new_urls:
             if any(domain in url for domain in bad_sites_list):
                 k+=1    # If this url is in bad_sites_list, add 1 to counter and move on
-                print("  Bad site detected. Moving on.")
+                #print("  Bad site detected. Moving on.")
             else:
                 good_url = url
-                known_urls.append(good_url)
                 print("    Success! URL obtained by Google search with " + str(k) + " bad URLs avoided.")
                 break    # Exit for loop after first good url is found
                 
@@ -229,30 +247,17 @@ def getURL(school_name, address, bad_sites_list, manual_url, known_urls):
 
 
 numschools = 0  # initialize scraping counter
-known_URLs = []  # initialize list of known URLs
 
 keys = sample[0].keys()  # define keys for writing function
 fname = "../sample.csv"  # define file name for writing function
 
 
-def dicts_to_csv(list_of_dicts, file_name, header):
-    '''This helper function writes a list of dictionaries to file_name.csv, with column names given in header.'''
-    
-    with open(file_name, 'w') as output_file:
-        print("Saving to " + str(file_name) + "...")
-        dict_writer = csv.DictWriter(output_file, header)
-        dict_writer.writeheader()
-        dict_writer.writerows(list_of_dicts)
-        
-
-'''
 # Now to call the above function and actually scrape these things!
 for school in sample: # loop through list of schools
     if school["URL"] == "":  # if URL is missing, fill that in by scraping
         try:
             numschools += 1
-            school["NUM_BAD_URLS"], school["URL"] = "", "" # start with empty strings
-            school["NUM_BAD_URLS"], school["URL"] = getURL(school["SCH_NAME"], school["ADDRESS"], bad_sites, school["MANUAL_URL"], known_URLs)
+            (school["NUM_BAD_URLS"], school["URL"]) = getURL(school["SCH_NAME"], school["ADDRESS"], bad_sites, school["MANUAL_URL"])
         except:  # Save sample to file (can continue to load and add to it)
             dicts_to_csv(sample, fname, keys)
     
@@ -264,15 +269,15 @@ for school in sample: # loop through list of schools
             try:
                 numschools += 1
                 school["NUM_BAD_URLS"], school["URL"] = "", "" # start with empty strings
-                school["NUM_BAD_URLS"], school["URL"] = getURL(school["SCH_NAME"], school["ADDRESS"], bad_sites, school["MANUAL_URL"], known_URLs)
+                school["NUM_BAD_URLS"], school["URL"] = getURL(school["SCH_NAME"], school["ADDRESS"], bad_sites, school["MANUAL_URL"])
+                                  
             except:  # Save sample to file (can continue to load and add to it)
                 dicts_to_csv(sample, fname, keys)
 
 print("\n\nURLs discovered for " + str(numschools) + " schools.")
 
-dicts_to_csv(sample, fname, keys)
-'''
 
+'''
 # different approach for 75 remaining sites--do them by hand!
 
 for school in sample:
@@ -301,6 +306,7 @@ for school in sample:
                                            
     else:
         pass
+'''
 
 dicts_to_csv(sample, fname, keys)
 count_left(sample, 'URL')

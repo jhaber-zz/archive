@@ -1,5 +1,5 @@
-# School choice as ideological differentiation:
-## Charter school identities and outcomes in the accountability era
+# Ideology as stratification:
+## How charter schools map race and class onto organizational identities
 (Working title)
 
 This repo is for data and code related to my dissertation research on charter school identities as analyzed from mission statements (MSs) on their public websites. Most of the code is in Python 3 Jupyter Notebooks.

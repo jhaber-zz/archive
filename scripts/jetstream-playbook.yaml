@@ -1,0 +1,75 @@
+---
+- hosts: localhost
+
+  tasks:
+    - user:
+        name: jhaber
+        uid: 1000
+        comment: "Brad Afzali"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: bradafza
+        uid: 1001
+        comment: "Brad Afzali"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: harshayu
+        uid: 1002
+        comment: "Harshayu Girase"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: sujaksh
+        uid: 1003
+        comment: "Akshat Gokhale"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: arjuns
+        uid: 1004
+        comment: "Arjun Srinivasan"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: aculich
+        uid: 1005
+        comment: "Aaron Culich"
+        groups: users,admin,docker
+        shell: /bin/bash
+
+
+#    - name: Set authorized key took from url
+    - authorized_key:
+        user: jhaber
+        state: present
+        key: https://github.com/jhaber-zz.keys
+    - authorized_key:
+        user: bradafza
+        state: present
+        key: https://github.com/bradafzali.keys
+    - authorized_key:
+        user: arjuns
+        state: present
+        key: https://github.com/arjunsrinivasan1997.keys
+    - authorized_key:
+        user: harshayu
+        state: present
+        key: https://github.com/HarshayuGirase.keys
+    - authorized_key:
+        user: sujaksh
+        state: present
+        key: https://github.com/ajgokhale.keys
+    - authorized_key:
+        user: aculich
+        state: present
+        key: https://github.com/aculich.keys
+
+    - copy:
+        src: charter-school-notebook-server
+        dest: /usr/local/bin/charter-school-notebook-server
+        owner: root
+        group: root
+        mode: 0755
+

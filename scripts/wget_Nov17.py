@@ -1,21 +1,15 @@
-
-# coding: utf-8
+#!/usr/bin/env python
+# -*- coding: UTF-8
 
 # # Wget using reject, THEN accept!
-
-# In[12]:
-
 
 # import necessary libraries for smart use of wget
 import os, csv
 import shutil
 import urllib
 from urllib.request import urlopen
+from urllib.parse import urlparse
 from socket import error as SocketError
-
-
-# In[26]:
-
 
 #setting directories
 micro_sample13 = "/vol_b/data/Charter-school-identities/data/micro-sample13_coded.csv"
@@ -25,27 +19,67 @@ wget_folder = "/vol_b/data/wget/Nov_2017/"
 
 # ### Helper Functions
 
-# In[14]:
-
-
-def get_parent_link(text):
+'''def get_parent_link(text):
     """Function to get parents' links. Return a list of valid links."""
     ls= get_parent_link_helper(5, text, []);
     if len(ls) > 1:
         return ls[0]
-    return str
+    return text
 
 def get_parent_link_helper(level, text, result):
     """This is a tail recursive function
     to get parent link of a given link. Return a list of urls """
-    if level == 0 or not check(str):
+    if not check(text):
         return ''
-    else:
+    elif level != 0:
         result += [text]
-        return get_parent_link_helper(num -1, str[: text.rindex('/')], result)
+        return get_parent_link_helper(level-1, text[: str.rindex(text, '/')], result)
+        #return text[-1: str(text.rindex('/'))
+    else:
+        return(result)'''
+
+    
+def check(url):
+    """ Helper function, check if url is a valid list <- our backup plan
+    This function helps to check the url that has service unavailable issues
+    Since status code fails to check this."""
+    
+    try:
+        urlopen(url)
+        
+    except urllib.error.URLError:
+        print(url + " :URLError")
+        return False
+    except urllib.error.HTTPError:
+        print(url +' :HTTPError')
+        return False
+    except SocketError:
+        print(url + 'SocketError')
+        return False
+    return True
 
 
-# In[15]:
+def check_url(url):
+    """This functions uses the status code to determine if the link is valid. 
+    This resolves the links that redirect and most cases of authentication problems"""
+    
+    code = "[no code collected]"
+    if url == "":
+        return False
+    
+    try:
+        r = requests.get(url, auth=HTTPDigestAuth('user', 'pass'), headers= {'User-Agent':"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36"})
+        code = r.status_code
+        #backup plan for service unavailable issues
+        if code == 503:
+            return check(url)
+        if code < 400:
+            return True   
+    
+    except:
+        pass
+    print("Encountered this invalid link: " + str(url) +" ---Error code: " + str(code))
+    return False    
 
 
 def format_folder_name (k, name):
@@ -102,33 +136,6 @@ def reset_text_file(file_name):
                 text_file.write("")
 
 
-# In[16]:
-
-
-#testing methods
-print(format_folder_name(30, "name me"))
-
-
-
-# In[17]:
-
-
-def check(url):
-    """ Helper function, check if url is a valid list"""
-    try:
-        urlopen(url)
-        
-    except urllib.error.URLError:
-        print("urllib.error.URLError")
-        return False
-    except urllib.error.HTTPError:
-        print('urllib.error.HTTPError')
-        return False
-    except SocketError:
-        print('SocketError')
-        return False
-    return True
-
 
 def read_txt(txt_file):
     links = []
@@ -159,28 +166,6 @@ def read_txt_2(txt_file):
     return links, count
 
 
-# In[18]:
-
-
-def count_valid_links(list_of_links, valid_file, invalid_file):
-    count_success, count_fail = 0, 0
-    valid, invalid = '', ''
-    for l in list_of_links:
-#         print(l)
-        if check(l):
-            valid += l + '\n'
-            count_success +=1
-        else:
-            invalid += l + '\n'
-            count_fail += 1
-#             print(l)
-    write_file(valid, valid_file)
-    write_file(invalid, invalid_file)
-    return count_success, count_fail
-
-
-# In[19]:
-
 
 def run_wget_command(link, parent_folder, my_folder):
     """wget on link and print output to appropriate folders. Uses two kinds of wget:
@@ -195,20 +180,17 @@ def run_wget_command(link, parent_folder, my_folder):
     specific_folder = parent_folder + '/'+ my_folder
     
     # Define parameters for wget command
-    wget_reject_options = '    --no-parent --show-progress --progress=dot --page-requisites --recursive --append-output=wgetNov17_log --level inf     --warc-file={} --warc-cdx --directory-prefix= ' + parent_folder + ' --referer= ' + get_parent_link(link) + '     --random-wait --timestamping --show-progress --progress=dot --verbose     --no-remove-listing --follow-ftp --no-clobber --adjust-extension --convert-links     --retry-connrefused --tries=10 -execute robots=off --no-cookies --header "Host: jrs-s.net" --secure-protocol=auto --no-check-certificate     --user-agent="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:11.0) Gecko/20100101 Firefox/11.0"     --reject .mov,.MOV,.avi,.AVI,.mpg,.MPG,.mpeg,.MPEG,.mp3,.MP3,.mp4,.MP4,.ppt,.PPT,.pptx,.PPTX'
+    wget_reject_options = '    --no-parent --show-progress --progress=dot --page-requisites --recursive --append-output=wgetNov17_log --level inf     --warc-file={} --warc-cdx --directory-prefix= ' + parent_folder + ' --referer= ' + urlparse(link).hostname + '     --random-wait --timestamping --show-progress --progress=dot --verbose     --no-remove-listing --follow-ftp --no-clobber --adjust-extension --convert-links     --retry-connrefused --tries=10 -execute robots=off --no-cookies --header "Host: jrs-s.net" --secure-protocol=auto --no-check-certificate     --user-agent="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:11.0) Gecko/20100101 Firefox/11.0"     --reject .mov,.MOV,.avi,.AVI,.mpg,.MPG,.mpeg,.MPEG,.mp3,.MP3,.mp4,.MP4,.ppt,.PPT,.pptx,.PPTX'
     
-    wget_accept_options = '    --no-parent --show-progress --progress=dot --page-requisites --recursive --append-output=wgetNov17_log --level inf     --warc-file={} --warc-cdx --directory-prefix= ' + parent_folder + ' --referer= ' + get_parent_link(link) + '     --random-wait --timestamping --show-progress --progress=dot --verbose     --no-remove-listing --follow-ftp --no-clobber --adjust-extension --convert-links     --retry-connrefused --tries=10 -execute robots=off --no-cookies --header "Host: jrs-s.net" --secure-protocol=auto --no-check-certificate     --user-agent="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:11.0) Gecko/20100101 Firefox/11.0"     --accept .htm,.html,.asp,.aspx,.php,.shtml,.cgi,.php,.pl,.jsp'
+    wget_accept_options = '    --no-parent --show-progress --progress=dot --page-requisites --recursive --append-output=wgetNov17_log --level inf     --warc-file={} --warc-cdx --directory-prefix= ' + parent_folder + ' --referer= ' + urlparse(link).hostname + '     --random-wait --timestamping --show-progress --progress=dot --verbose     --no-remove-listing --follow-ftp --no-clobber --adjust-extension --convert-links     --retry-connrefused --tries=10 -execute robots=off --no-cookies --header "Host: jrs-s.net" --secure-protocol=auto --no-check-certificate     --user-agent="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:11.0) Gecko/20100101 Firefox/11.0"     --accept .htm,.html,.asp,.aspx,.php,.shtml,.cgi,.php,.pl,.jsp'
     
     # Run wget reject, then wget accept if necessary!
-    os.system('parallel -j 100 wget ' + wget_reject_options + ' ' + link) #use concurrency to speed up the web-crawl
+    os.system('parallel -j 100 --no-notice wget ' + wget_reject_options + ' ' + link) #use concurrency to speed up the web-crawl
     if not contains_html(specific_folder):
-        os.system('parallel -j 100 wget ' + wget_accept_options + ' ' + link) #back-up plan if reject fails: wget accept!
+        os.system('parallel -j 100 --no-notice wget ' + wget_accept_options + ' ' + link) #back-up plan if reject fails: wget accept!
 
 
 # ### Running wget
-
-# In[27]:
-
 
 sample = [] # make empty list
 with open(micro_sample13, 'r', encoding = 'Latin1')as csvfile: # open file
@@ -218,8 +200,6 @@ with open(micro_sample13, 'r', encoding = 'Latin1')as csvfile: # open file
         
 #note: each row, sample[i] is a dictionary with keys as column name and value as info
 
-
-# In[6]:
 
 
 # turning this into tuples we can use with wget!
@@ -235,16 +215,12 @@ for school in sample:
     terms_list.append(school["ADDRESS"])
 
 
-# In[7]:
-
 
 tuple_list = list(zip(url_list, name_list))
 # Let's check what these tuples look like:
-print(tuple_list[:3])
-print("\n", tuple_list[1][1].title())
+#print(tuple_list[:3])
+#print("\n", tuple_list[1][1].title())
 
-
-# In[12]:
 
 
 k=0 # initialize this numerical variable k, which keeps track of which entry in the sample we are on.

@@ -180,14 +180,17 @@ def run_wget_command(link, parent_folder, my_folder):
     specific_folder = parent_folder + '/'+ my_folder
     
     # Define parameters for wget command
-    wget_reject_options = '    --no-parent --show-progress --progress=dot --page-requisites --recursive --append-output=wgetNov17_log --level inf     --warc-file={} --warc-cdx --directory-prefix= ' + parent_folder + ' --referer= ' + urlparse(link).hostname + '     --random-wait --timestamping --show-progress --progress=dot --verbose     --no-remove-listing --follow-ftp --no-clobber --adjust-extension --convert-links     --retry-connrefused --tries=10 -execute robots=off --no-cookies --header "Host: jrs-s.net" --secure-protocol=auto --no-check-certificate     --user-agent="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:11.0) Gecko/20100101 Firefox/11.0"     --reject .mov,.MOV,.avi,.AVI,.mpg,.MPG,.mpeg,.MPEG,.mp3,.MP3,.mp4,.MP4,.ppt,.PPT,.pptx,.PPTX'
+    wget_reject_options = '    --no-parent --show-progress --progress=dot --page-requisites --recursive --append-output=wgetNov17_log --level inf     --warc-file={} --warc-cdx --directory-prefix= ' + parent_folder + ' --referer= ' + urlparse(link).hostname + '     --random-wait --show-progress --progress=dot --verbose     --no-remove-listing --follow-ftp --adjust-extension --convert-file-only --convert-links --verbose    --retry-connrefused --tries=10 --execute robots=off --no-cookies --secure-protocol=auto --no-check-certificate --server-response     --user-agent="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:11.0) Gecko/20100101 Firefox/11.0" --exclude /events,/event,/calendar,/calendars,/login     --reject .mov,.MOV,.avi,.AVI,.mpg,.MPG,.mpeg,.MPEG,.mp3,.MP3,.mp4,.MP4,.ppt,.PPT,.pptx,.PPTX'
     
-    wget_accept_options = '    --no-parent --show-progress --progress=dot --page-requisites --recursive --append-output=wgetNov17_log --level inf     --warc-file={} --warc-cdx --directory-prefix= ' + parent_folder + ' --referer= ' + urlparse(link).hostname + '     --random-wait --timestamping --show-progress --progress=dot --verbose     --no-remove-listing --follow-ftp --no-clobber --adjust-extension --convert-links     --retry-connrefused --tries=10 -execute robots=off --no-cookies --header "Host: jrs-s.net" --secure-protocol=auto --no-check-certificate     --user-agent="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:11.0) Gecko/20100101 Firefox/11.0"     --accept .htm,.html,.asp,.aspx,.php,.shtml,.cgi,.php,.pl,.jsp'
+    wget_accept_options = '    --no-parent --show-progress --progress=dot --page-requisites --recursive --append-output=wgetNov17_log --level inf     --warc-file={} --warc-cdx --directory-prefix= ' + parent_folder + ' --referer= ' + urlparse(link).hostname + '     --random-wait --show-progress --progress=dot --verbose     --no-remove-listing --follow-ftp --adjust-extension --convert-file-only --convert-links --verbose    --retry-connrefused --tries=10 --execute robots=off --no-cookies --secure-protocol=auto --no-check-certificate --server-response     --user-agent="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:11.0) Gecko/20100101 Firefox/11.0" --exclude /events,/event,/calendars,/calendar,/login     --accept .htm,.html,.asp,.aspx,.php,.shtml,.cgi,.php,.pl,.jsp'
     
     # Run wget reject, then wget accept if necessary!
-    os.system('parallel -j 100 --no-notice wget ' + wget_reject_options + ' ' + link) #use concurrency to speed up the web-crawl
+    #os.system('parallel -j 100 --no-notice wget ' + wget_reject_options + ' ' + link) #use concurrency to speed up the web-crawl
+    print("  Running wget with reject options...")
+    os.system('wget ' + wget_reject_options + ' ' + link) #use concurrency to speed up the web-crawl
     if not contains_html(specific_folder):
-        os.system('parallel -j 100 --no-notice wget ' + wget_accept_options + ' ' + link) #back-up plan if reject fails: wget accept!
+        print("  Nope! Back-up plan: Running wget with accept options...")
+        os.system('wget ' + wget_accept_options + ' ' + link) #back-up plan if reject fails: wget accept!
 
 
 # ### Running wget

@@ -4,7 +4,8 @@
 # # Wget using reject, THEN accept!
 
 # import necessary libraries for smart use of wget
-import os, csv
+import os, subprocess #for running terminal commands and folder management
+import csv #for reading and writing data to .csv format
 import shutil
 import urllib
 from urllib.request import urlopen
@@ -83,7 +84,7 @@ def check_url(url):
 
 
 def format_folder_name (k, name):
-    """Format a folder nicely for easy access"""
+    """Format a folder nicely for readability and easy access"""
     if k < 10: # Add two zeros to the folder name if k is less than 10 (for ease of organizing the output folders)
         dirname = "00" + str(k) + " " + name
     elif k < 100: # Add one zero if k is less than 100
@@ -109,15 +110,20 @@ def count_with_file_ext(folder, ext):
                 count +=1
     return count 
 
-# write a file and add num line at the beginning of line
-def write_to_file(num, link, file_name):
+def write_numstr(num, content, file_name):
+    '''write a file and add num line at the beginning of line'''
     with open(file_name, "a") as text_file:
-        text_file.write(str(num) + "\t" + link +"\n")
+        text_file.write(str(num) + "\t" + content +"\n")
 
-# just write str to file
-def write_file(content, file_name):
+def write_str(content, file_name):
+    '''Write str to file'''
     with open(file_name, "a") as text_file:
         text_file.write(content)
+        
+def write_list(alist, file_name):
+    with open(file_name, 'w') as file_handler:
+        for elem in alist:
+            file_handler.write("{}\n".format(elem))
         
 def reset(folder, text_file_1, text_file_2):
     """Deletes all files in a folder and set 2 text files to blank"""
@@ -173,19 +179,18 @@ def read_txt_2(txt_file):
 
 
 #Define most general wget parameters (more specific params below)
-wget_general_options = '--no-parent --show-progress --progress=dot --page-requisites --recursive --level inf \
---append-output=wgetNov17_log.txt --local-encoding=UTF-8 --warc-cdx --random-wait --show-progress --progress=dot --verbose \
---no-remove-listing --follow-ftp --adjust-extension --convert-file-only --convert-links --retry-connrefused --tries=10 \
---execute robots=off --no-cookies --secure-protocol=auto --no-check-certificate --server-response \
---user-agent="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:11.0) Gecko/20100101 Firefox/11.0" \
---exclude-directories = "/event*,/calendar*,/*login*,/misc,/portal"'
+wget_general_options = '--no-parent --recursive --level inf --warc-cdx \
+--append-output=wgetNov17_log.txt --convert-file-only --no-check-certificate \
+--exclude-directories = "/event*,/calendar*,/*login*,/misc,/portal,/news"'
+
+#user_agent = Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0
 
 
 def wget_params(link, title, parent_folder, wget_genopts):
     '''Define parameters for wget command, given the input URL `link` and the root of directory hierarchy `parent_folder`.'''
 
-    wget_locs = '--directory-prefix= ' + parent_folder + ' --referer= ' + urlparse(link).hostname +\
-    ' --warc-file=warc-' + title + ' 
+    wget_locs = '--directory-prefix=' + parent_folder + ' --referer=' + urlparse(link).hostname +\
+    ' --warc-file=warc-' + title
     
     wget_reject_options = wget_genopts + wget_locs + ' --reject .mov,.MOV,.avi,.AVI,.mpg,.MPG,.mpeg,.MPEG,.mp3,.MP3,.mp4,.MP4,.ppt,.PPT,.pptx,.PPTX'
     
@@ -210,7 +215,7 @@ def run_wget_command(tuple_list, parent_folder):
         # use tuple to create a name for the folder
         dirname = school_title + " " + school_address #format_folder_name(k, school_title)
         
-        os.chdir(parent_folder) #navigate to parent folder
+        os.chdir(parent_folder) #everything points to parent folder, so start here
         if not os.path.exists(dirname): #create dir my_folder if it doesn't exist yet
             os.makedirs(dirname)
         os.chdir(dirname) #navigate to the correct folder, ready to wget
@@ -218,9 +223,9 @@ def run_wget_command(tuple_list, parent_folder):
         
         k = 0 # initialize this numerical variable k, which keeps track of which entry in the sample we are on.
         k += 1 # Add one to k, so we start with 1 and increase by 1 all the way up to length of list used to call command
-        print("Capturing website data for" + school_title + ", which is school #" + str(k) + "of " + len(tuple_list) + "...")
+        print("Capturing website data for " + school_title + ", which is school #" + str(k) + " of " + str(len(tuple_list)) + "...")
         
-        reject_options, accept_options = wget_params(school_link, school_title parent_folder, wget_general_options)
+        reject_options, accept_options = wget_params(school_link, school_title, parent_folder, wget_general_options)
         
         print("  Running wget with reject options...")
         os.system('wget ' + reject_options + ' ' + school_link) #use concurrency to speed up the web-crawl
@@ -237,20 +242,38 @@ def run_wget_parallel(tuple_list, parent_folder):
     Uses reject options together with concurrency via the `parallel` package to accelerate the download.
     """  
     
+    os.chdir(parent_folder) #everything points to parent folder, so start here
+    
     #make these new lists for input to Parallel: [0] link; [1] folder name (school name + address); [2] root host name
     #new_tuplist = [[tup[0], tup[1]+" "+tup[2], urlparse(tup[0]).hostname] for tup in tuple_list]
     links_list = [tup[0] for tup in tuple_list]
     names_list = [(tup[1]+" "+tup[2]) for tup in tuple_list]
-    host_list = [urlparse(tup[0]).hostname for tup in tuple_list]
+    hosts_list = [urlparse(tup[0]).hostname for tup in tuple_list]
     
-    for list in links_list, names_list, host_list:
-        file_dest = parent_folder + list + '.txt'
-        write_file(file_dest, file_dest)
+    links_location = parent_folder + "links_list.txt"
+    names_location = parent_folder + "names_list.txt"
+    hosts_location = parent_folder + "hosts_list.txt"
     
-    os.system('parallel -j100 --no-notice --progress --eta --bar "(echo {};sleep 0.1)" wget ' + wget_general_options +\
-              'directory-prefix= ' + parent_folder + '/{1} --warc-file=warc-{1} --referer={2} \
+    write_list(links_list, links_location)
+    write_list(names_list, names_location)
+    write_list(hosts_list, hosts_location)
+    
+    # OLD OPTIONS:
+    # "(echo {};sleep 0.1"
+    # --bar --progress --will-cite --max-replace-args=3
+    # :::: ' + links_location + ' ' + names_location + ' ' + hosts_location
+    
+    os.system('echo_and_run() { echo "\$ $@" ; "$@" ; }; echo_and_run \
+    parallel --progress --eta --max-replace-args=3 -link -keep-order --jobs 100 wget ' + wget_general_options +\
+              ' directory-prefix=' + parent_folder + '{1} --warc-file=warc-{0} --referer={2} \
               --reject .mov,.MOV,.avi,.AVI,.mpg,.MPG,.mpeg,.MPEG,.mp3,.MP3,.mp4,.MP4,.ppt,.PPT,.pptx,.PPTX\
-              {0} < ' + links_list)
+              {0} :::: links_list.txt names_list.txt hosts_list.txt')
+    
+    '''os.system('echo_and_run() { echo "\$ $@" ; "$@" ; }; echo_and_run \
+    parallel --jobs 100 --eta --bar --will-cite --link --keep-order wget ' + wget_general_options +\
+              ' directory-prefix=' + parent_folder + '{} --warc-file=warc-{} --referer={} \
+              --reject .mov,.MOV,.avi,.AVI,.mpg,.MPG,.mpeg,.MPEG,.mp3,.MP3,.mp4,.MP4,.ppt,.PPT,.pptx,.PPTX\
+              {} < ' + links_location)'''
     
     print("done!")    
 
@@ -287,11 +310,11 @@ school_tuple_list = list(zip(url_list, name_list, terms_list))
 
 
 # define crawling sample--how much of the micro-sample of 300 or 2014 pop. of 6,752?
-#tuple_test = school_tuple_list[6:10]
+school_tuple_test = school_tuple_list[:10]
 
-#run_wget_command(school_tuple_list, wget_folder)
-    
-run_wget_parallel(school_tuple_list, wget_folder)
+#run_wget_command(school_tuple_test, wget_folder)
+
+run_wget_parallel(school_tuple_test, wget_folder)
 
 
 # ### Limitation of wget

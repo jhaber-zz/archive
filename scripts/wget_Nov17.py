@@ -227,7 +227,8 @@ def wget_params(link, host, title, parent_folder, wget_genopts):
     '''Define parameters for wget command, given the input URL `link` and the root of directory hierarchy `parent_folder`.'''
 
     wget_locs = '--directory-prefix=' + parent_folder + ' --referer=' + host +\
-    ' --warc-file=' + title + '_warc --append-output=wgetNov17_log.txt'
+    '--append-output=wgetNov17_log.txt' 
+    #' --warc-file=' + title + '_warc
     
     wget_reject_options = wget_genopts + wget_locs + reject_exts
     
@@ -303,10 +304,11 @@ def run_wget_parallel(tuple_list, parent_folder):
     # Note: unlike Python, the parallel package uses standard indexing (1,2,3 not 0,1,2)
     subprocess.run('time parallel --jobs 100 --eta --progress --bar --will-cite --link --keep-order \
     -- wget ' + wget_general_options + accept_exts + ' --user-agent=Mozilla \
-    directory-prefix=' + parent_folder + '{3} --warc-file={3}/{2}_warc --referer={3} \
+    directory-prefix=' + parent_folder + '{3} --referer={3} \
     --append-output={3}/{2}_wgetNov17_log.txt {1} \
     ::::+ links_list.txt names_list.txt hosts_list.txt', stdout=subprocess.PIPE, shell=True, cwd=parent_folder)
     #--verbose
+    #--warc-file={3}/{2}_warc
     
     # If a site produces no HTML files, then we run (non-parallel) wget accept as a backup
     for tup in tuple_list:
@@ -385,7 +387,7 @@ school_tuple_list = list(zip(url_list, name_list, terms_list))
 
 #expt_links = ['https://vangoghcs-lausd-ca.schoolloop.com/', 'https://cms.springbranchisd.com/wais/']
 #school_tuple_test = [school for school in school_tuple_list if school[0] in expt_links]
-school_tuple_test = school_tuple_list[:100]
+school_tuple_test = school_tuple_list
 
 #run_wget_command(school_tuple_test, test_folder)
 

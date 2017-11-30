@@ -180,15 +180,9 @@ def write_list(alist, file_name):
 --convert-links --execute robots=off --directory-prefix=. --user-agent=Mozilla --follow-tags=a http://{} < ../list.txt'''
 
 
-#Define most general wget parameters (more specific params below)
-#This list would not be so long if Parallel would allow wget to read from /usr/local/etc/wgetrc
-wget_general_options = '--no-parent --level inf --warc-cdx --no-check-certificate \
---recursive --user-agent=Mozilla \
---adjust-extension --convert-links --verbose --random-wait -e --robots=off --follow-ftp --secure-protocol=auto \
---show-progress --page-requisites --retry-connrefused --no-remove-listing --local-encoding=UTF-8 \
---no-cookies --default-page=default --server-response --trust-server-names \
---exclude-directories=\
-"/event*,/Event*,/event,/Event,/events,/Events,/*/Event,/*/event,/*/*/Event,/*/*/event,/*/*/Events,/*/*/events,\
+#List of unnecessary/huge directories to exclude from web download:
+exclude_dirs = "/event*,/Event*,/event,/Event,/events,/Events,/*/Event,/*/event,/*/*/Event,/*/*/event,/*/*/Events,/*/*/events,\
+/apps/events,/apps/Events,/Apps/events,/Apps/Events,/apps/event,/apps/Event,/Apps/event,Apps/Event,\
 /*calendar*,/*Calendar*,/calendar,/Calendar,/*/calendar,/*/Calendar/,/*/*/calendar,/*/*/Calendar/,\
 *login*,/*Login*,/login,/Login,/*/login,/*/Login,/*/*/login,/*/*/Login,\
 /misc,/Misc,/*/misc,/*/Misc,/*/*/misc,/*/*/Misc,/miscellaneous,/*/miscellaneous,/*/*/miscellaneous,\
@@ -201,28 +195,43 @@ wget_general_options = '--no-parent --level inf --warc-cdx --no-check-certificat
 /UserFiles,/userfiles,/Userfiles,/User-Files,/user-files,/User-files,\
 /*/UserFiles,/*/userfiles,/*/Userfiles,/*/User-Files,/*/user-files,/*/User-files,\
 /*/*/UserFiles,/*/*/userfiles,/*/*/Userfiles,/*/*/User-Files,/*/*/user-files,/*/*/User-files,\
+/facilities,/Facilities,/apps/facilities,/apps/Facilities,\
+/2007,/2008,/2009,/2010,/2011,/2012,/2013,/2014,/2015,/2016,/2017,/2018,\
 /css,/CSS,/*/css,/*/CSS,/*/*/css,/*/*/CSS,\
 /cms,/CMS,/*/cms,/*/CMS,/*/*/cms,/*/*/CMS,\
 /plugin,/plugins,/Plugin,/Plugins,/*/plugin,/*/Plugin,/*/plugins,/*/Plugins,/*/*/plugin,/*/*/plugins,/*/*/Plugin,/*/*/Plugins\
-/upload,/uploads,/Upload,/Uploads,/*/upload,/*/uploads,/*/Upload,/*/Uploads,/*/*/upload,/*/*/uploads,/*/*/Upload,/*/*/Uploads"'
+/upload,/uploads,/Upload,/Uploads,/*/upload,/*/uploads,/*/Upload,/*/Uploads,/*/*/upload,/*/*/uploads,/*/*/Upload,/*/*/Uploads"
+
+
+#Define most general wget parameters (more specific params below)
+#This list would not be so long if Parallel would allow wget to read from /usr/local/etc/wgetrc
+wget_general_options = '--no-parent --level inf --warc-cdx --no-check-certificate \
+--recursive --adjust-extension --convert-links --page-requisites --verbose --random-wait \
+-e --robots=off --follow-ftp --secure-protocol=auto --retry-connrefused --no-remove-listing \
+--local-encoding=UTF-8 --no-cookies --default-page=default --server-response --trust-server-names \
+--exclude-directories=' + exclude_dirs
 
 #--convert-file-only 
 #--force-directories
+#--show-progress 
 #user_agent = Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0
 
-#expand list of rejections for parsimonious crawling:
-reject_params = ' --reject .mov,.MOV,.avi,.AVI,.mpg,.MPG,.mpeg,.MPEG,.mp3,.MP3,.mp4,.MP4,.ppt,.PPT,.pptx,.PPTX,.zip,.7z,.pkg,.deb' + \
-',.png,.PNG,.gif,.GIF,.jpg,.JPG,.jpeg,.JPEG,.pdf,.PDF,.pdf_,.PDF_,.doc,.DOC,.docx,.DOCX,.xls,.XLS,.xlsx,.XLSX,.csv,.CSV'
 
-def wget_params(link, title, parent_folder, wget_genopts):
+#To help with parsimony/download speeds, these lists expand rejections and limit acceptances:
+#Note: THESE EXT LISTS START WITH A SPACE.
+reject_exts = ' --reject .mov,.MOV,.avi,.AVI,.mpg,.MPG,.mpeg,.MPEG,.mp3,.MP3,.mp4,.MP4,.ppt,.PPT,.pptx,.PPTX,.zip,.7z,.pkg,.deb' + \
+',.png,.PNG,.gif,.GIF,.jpg,.JPG,.jpeg,.JPEG,.pdf,.PDF,.pdf_,.PDF_,.doc,.DOC,.docx,.DOCX,.xls,.XLS,.xlsx,.XLSX,.csv,.CSV' #drop this 2nd line when running at scale
+accept_exts = ' --accept text/html' #Other accept options: .htm,.html,.asp,.aspx,.php,.shtml,.cgi,.php,.pl,.jsp
+
+def wget_params(link, host, title, parent_folder, wget_genopts):
     '''Define parameters for wget command, given the input URL `link` and the root of directory hierarchy `parent_folder`.'''
 
-    wget_locs = '--directory-prefix=' + parent_folder + ' --referer=' + urlparse(link).hostname +\
-    ' --warc-file=warc-' + title + ' --append-output=wgetNov17_log.txt'
+    wget_locs = '--directory-prefix=' + parent_folder + ' --referer=' + host +\
+    ' --warc-file=' + title + '_warc --append-output=wgetNov17_log.txt'
     
-    wget_reject_options = wget_genopts + wget_locs + reject_params
+    wget_reject_options = wget_genopts + wget_locs + reject_exts
     
-    wget_accept_options = wget_genopts + wget_locs + ' --accept .htm,.html,.asp,.aspx,.php,.shtml,.cgi,.php,.pl,.jsp'
+    wget_accept_options = wget_genopts + wget_locs + accept_exts
     
     return(wget_reject_options, wget_accept_options)
 
@@ -235,10 +244,11 @@ def run_wget_command(tuple_list, parent_folder):
     """  
     
     for tup in tuple_list:
-        # process tuple_list into variables of use
+        # process tuple_list into useful variables
         school_link = tup[0]
-        school_title = tup[1]
+        school_title = (tup[1]+" "+tup[2][-2:])
         school_address = tup[2]
+        school_host = urlparse(school_link).hostname
         
         # use tuple to create a name for the folder
         dirname = school_title + " " + school_address #format_folder_name(k, school_title)
@@ -253,18 +263,18 @@ def run_wget_command(tuple_list, parent_folder):
         k += 1 # Add one to k, so we start with 1 and increase by 1 all the way up to length of list used to call command
         print("Capturing website data for " + school_title + ", which is school #" + str(k) + " of " + str(len(tuple_list)) + "...")
         
-        reject_options, accept_options = wget_params(school_link, school_title, parent_folder, wget_general_options)
+        reject_options, accept_options = wget_params(school_link, school_host, school_title, parent_folder, wget_general_options)
         
         print("  Running wget with reject options...")
-        os.system('time wget ' + reject_options + ' ' + school_link)
+        subprocess.run('time wget user_agent = Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0' + reject_options + ' ' + school_link, stdout=subprocess.PIPE, shell=True, cwd=specific_folder)
         if not contains_html(specific_folder):
             print("  Nope! Back-up plan: Running wget with accept options...")
-            os.system('time wget ' + accept_options + ' ' + school_link) #back-up plan if reject fails: wget accept!
+            subprocess.run('time wget user_agent = Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0' + accept_options + ' ' + school_link, stdout=subprocess.PIPE, shell=True, cwd=specific_folder) #back-up plan if reject fails: wget accept!
     
     # Here's the same command ready to run in shell from within parent_folder: 
-    '''sudo wget --no-parent --recursive --level inf --warc-cdx --no-check-certificate --exclude-directories = "event*,calendar*,*login*,misc,portal,news,css,cms,plugins" directory-prefix={3} --warc-file={3}/{2}_warc --referer={3} --output-file={3}/{2}_wgetNov17_log.txt --reject .mov,.MOV,.avi,.AVI,.mpg,.MPG,.mpeg,.MPEG,.mp3,.MP3,.mp4,.MP4,.ppt,.PPT,.pptx,.PPTX {1} ::::+ links_list.txt names_list.txt hosts_list.txt'''
+    '''sudo wget --no-parent --recursive --level inf --warc-cdx --no-check-certificate --exclude-directories = "event*,calendar*,*login*,misc,portal,news,css,cms,plugins" directory-prefix={3} --warc-file={3}/{2}_warc --referer={3} --output-file={3}/{2}_wgetNov17_log.txt {1} ::::+ links_list.txt names_list.txt hosts_list.txt'''
     
-    print("done!")    
+    print("\nDone!")    
             
             
 
@@ -291,12 +301,30 @@ def run_wget_parallel(tuple_list, parent_folder):
         
     # wget and parallel are shell commands, so we run with the subprocess module:
     # Note: unlike Python, the parallel package uses standard indexing (1,2,3 not 0,1,2)
-    subprocess.run('time parallel --jobs 100 --eta --progress --bar --will-cite --link --keep-order --verbose \
-    -- wget ' + wget_general_options + reject_params + ' directory-prefix=' + parent_folder + '{3} --warc-file={3}/{2}_warc \
-    --referer={3} --append-output={3}/{2}_wgetNov17_log.txt \
-    --reject ".mov,.MOV,.avi,.AVI,.mpg,.MPG,.mpeg,.MPEG,.mp3,.MP3,.mp4,.MP4,.ppt,.PPT,.pptx,.PPTX" \
-    {1} ::::+ links_list.txt names_list.txt hosts_list.txt', stdout=subprocess.PIPE, shell=True, cwd=parent_folder)
+    subprocess.run('time parallel --jobs 100 --eta --progress --bar --will-cite --link --keep-order \
+    -- wget ' + wget_general_options + accept_exts + ' --user-agent=Mozilla \
+    directory-prefix=' + parent_folder + '{3} --warc-file={3}/{2}_warc --referer={3} \
+    --append-output={3}/{2}_wgetNov17_log.txt {1} \
+    ::::+ links_list.txt names_list.txt hosts_list.txt', stdout=subprocess.PIPE, shell=True, cwd=parent_folder)
+    #--verbose
     
+    # If a site produces no HTML files, then we run (non-parallel) wget accept as a backup
+    for tup in tuple_list:
+        # process tuple_list into useful variables
+        school_link = tup[0]
+        school_title = (tup[1]+" "+tup[2][-2:])
+        #school_address = tup[2]
+        school_host = urlparse(school_link).hostname
+        
+        if not contains_html(os.path.dirname(school_host)):
+            k = 0 # initialize this numerical variable k, which keeps track of which entry in the sample we are on.
+            k += 1 # Add one to k, so we start with 1 and increase by 1 all the way up to length of list used to call command
+            print("Not HTML detected from parallel wget! Using (non-parallel) wget accept to capture HTML for " + school_title + ", which is school #" + str(k) + " of " + str(len(tuple_list)) + "...")
+            
+            reject_options, accept_options = wget_params(school_link, school_host, school_title, parent_folder, wget_general_options)
+            
+            subprocess.run('time wget user_agent = Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0' + accept_options + ' ' + school_link, stdout=subprocess.PIPE, shell=True, cwd=parent_folder)
+        
     
     # OLD OPTIONS ETC FOR REFERENCE
     '''"(echo {};sleep 0.1"
@@ -313,13 +341,12 @@ def run_wget_parallel(tuple_list, parent_folder):
     parallel --jobs 100 --progress --eta --bar --will-cite --link --keep-order --verbose -- wget ' + wget_general_options +\
               ' directory-prefix=' + parent_folder + '{} --warc-file=' + parent_folder + 'warc-{} \
               --referer={} --append-output=' + parent_folder + 'wgetNov17_log.txt \
-              --reject .mov,.MOV,.avi,.AVI,.mpg,.MPG,.mpeg,.MPEG,.mp3,.MP3,.mp4,.MP4,.ppt,.PPT,.pptx,.PPTX\
               {} < links_list.txt', stdout=subprocess.PIPE, shell=True, cwd=parent_folder)
     
     # Here's the same command ready to run in shell from within parent_folder: 
-    sudo parallel --jobs 100 --eta --progress --bar --will-cite --link --keep-order --verbose -- wget --no-parent --force-directories --recursive --level inf --warc-cdx --convert-file-only --no-check-certificate --exclude-directories = "event*,calendar*,*login*,misc,portal,news,css,cms,plugins" directory-prefix={3} --warc-file={3}/{2}_warc --referer={3} --output-file={3}/{2}_wgetNov17_log.txt --reject .mov,.MOV,.avi,.AVI,.mpg,.MPG,.mpeg,.MPEG,.mp3,.MP3,.mp4,.MP4,.ppt,.PPT,.pptx,.PPTX {1} ::::+ links_list.txt names_list.txt hosts_list.txt'''
+    sudo parallel --jobs 100 --eta --progress --bar --will-cite --link --keep-order --verbose -- wget --no-parent --force-directories --recursive --level inf --warc-cdx --convert-file-only --no-check-certificate --exclude-directories = "event*,calendar*,*login*,misc,portal,news,css,cms,plugins" directory-prefix={3} --warc-file={3}/{2}_warc --referer={3} --output-file={3}/{2}_wgetNov17_log.txt {1} ::::+ links_list.txt names_list.txt hosts_list.txt'''
     
-    print("done!")    
+    print("\nDone!")    
 
 
     
@@ -358,7 +385,7 @@ school_tuple_list = list(zip(url_list, name_list, terms_list))
 
 #expt_links = ['https://vangoghcs-lausd-ca.schoolloop.com/', 'https://cms.springbranchisd.com/wais/']
 #school_tuple_test = [school for school in school_tuple_list if school[0] in expt_links]
-school_tuple_test = school_tuple_list[:50]
+school_tuple_test = school_tuple_list[:100]
 
 #run_wget_command(school_tuple_test, test_folder)
 

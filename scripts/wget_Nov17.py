@@ -183,6 +183,7 @@ def write_list(alist, file_name):
 #List of unnecessary/huge directories to exclude from web download:
 exclude_dirs = "/event*,/Event*,/event,/Event,/events,/Events,/*/Event,/*/event,/*/*/Event,/*/*/event,/*/*/Events,/*/*/events,\
 /apps/events,/apps/Events,/Apps/events,/Apps/Events,/apps/event,/apps/Event,/Apps/event,Apps/Event,\
+/attend-event,/attend-events,/Attend-Event,/Attend-Events,/apps/attend-events,/apps/attend-event,\
 /*calendar*,/*Calendar*,/calendar,/Calendar,/*/calendar,/*/Calendar/,/*/*/calendar,/*/*/Calendar/,\
 *login*,/*Login*,/login,/Login,/*/login,/*/Login,/*/*/login,/*/*/Login,\
 /misc,/Misc,/*/misc,/*/Misc,/*/*/misc,/*/*/Misc,/miscellaneous,/*/miscellaneous,/*/*/miscellaneous,\
@@ -205,10 +206,11 @@ exclude_dirs = "/event*,/Event*,/event,/Event,/events,/Events,/*/Event,/*/event,
 
 #Define most general wget parameters (more specific params below)
 #This list would not be so long if Parallel would allow wget to read from /usr/local/etc/wgetrc
-wget_general_options = '--no-parent --level inf --warc-cdx --no-check-certificate \
+wget_general_options = '--no-parent --level 8 --no-check-certificate \
 --recursive --adjust-extension --convert-links --page-requisites --verbose --random-wait \
 -e --robots=off --follow-ftp --secure-protocol=auto --retry-connrefused --no-remove-listing \
 --local-encoding=UTF-8 --no-cookies --default-page=default --server-response --trust-server-names \
+header="Accept: text/html"\
 --exclude-directories=' + exclude_dirs
 
 #--convert-file-only 
@@ -216,19 +218,33 @@ wget_general_options = '--no-parent --level inf --warc-cdx --no-check-certificat
 #--show-progress 
 #user_agent = Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0
 
+# Some of these options explained: 
+'''
+--warc-file turns on WARC output to the specified file
+--warc-cdx tells wget to dump out an index file for our new WARC file
+--page-requisites will grab all of the linked resources necessary to render the page (images, css, javascript, etc)
+--adjust-extension appends .html to the files when appropriate
+--convert-links will turn links into local links as appropriate
+--execute robots=off turns off wget's automatic robots.txt checking
+--exclude-directories includes a comma-separated list of directories that wget should exclude in the archive
+--user-agent overrides wget's default user agent
+--random-wait will randomize that wait to between 5 and 15 seconds
+'''
+
 
 #To help with parsimony/download speeds, these lists expand rejections and limit acceptances:
 #Note: THESE EXT LISTS START WITH A SPACE.
 reject_exts = ' --reject .mov,.MOV,.avi,.AVI,.mpg,.MPG,.mpeg,.MPEG,.mp3,.MP3,.mp4,.MP4,.ppt,.PPT,.pptx,.PPTX,.zip,.7z,.pkg,.deb' + \
 ',.png,.PNG,.gif,.GIF,.jpg,.JPG,.jpeg,.JPEG,.pdf,.PDF,.pdf_,.PDF_,.doc,.DOC,.docx,.DOCX,.xls,.XLS,.xlsx,.XLSX,.csv,.CSV' #drop this 2nd line when running at scale
-accept_exts = ' --accept text/html' #Other accept options: .htm,.html,.asp,.aspx,.php,.shtml,.cgi,.php,.pl,.jsp
+reject_dirs = ' --exclude-directories=events,Events,news,News,calendar,calendars,Calendar,Calendars,contact,Contact,contact-us,Contact-Us'
+accept_exts = ' .htm,.html,.asp,.aspx,.php,.shtml,.cgi,.php,.pl,.jsp'
 
 def wget_params(link, host, title, parent_folder, wget_genopts):
     '''Define parameters for wget command, given the input URL `link` and the root of directory hierarchy `parent_folder`.'''
 
     wget_locs = '--directory-prefix=' + parent_folder + ' --referer=' + host +\
-    '--append-output=wgetNov17_log.txt' 
-    #' --warc-file=' + title + '_warc
+    ' --warc-cdx=' + title + '_cdx --warc-file=' + title + '_warc --warc-max-size=1G'
+    #'--append-output=wgetNov17_log.txt
     
     wget_reject_options = wget_genopts + wget_locs + reject_exts
     
@@ -302,13 +318,13 @@ def run_wget_parallel(tuple_list, parent_folder):
         
     # wget and parallel are shell commands, so we run with the subprocess module:
     # Note: unlike Python, the parallel package uses standard indexing (1,2,3 not 0,1,2)
-    subprocess.run('time parallel --jobs 100 --eta --progress --bar --will-cite --link --keep-order \
+    subprocess.run('time parallel --jobs 100 --eta --progress --bar --will-cite --link --keep-order --verbose \
     -- wget ' + wget_general_options + accept_exts + ' --user-agent=Mozilla \
-    directory-prefix=' + parent_folder + '{3} --referer={3} \
-    --append-output={3}/{2}_wgetNov17_log.txt {1} \
+    --warc-file={3}/{2}_warc --warc-cdx={3}/{2}_cdx --warc-max-size=1G \
+    directory-prefix=' + parent_folder + ' --referer={3} {1} \
     ::::+ links_list.txt names_list.txt hosts_list.txt', stdout=subprocess.PIPE, shell=True, cwd=parent_folder)
     #--verbose
-    #--warc-file={3}/{2}_warc
+    #--append-output={3}/{2}_wgetNov17_log.txt
     
     # If a site produces no HTML files, then we run (non-parallel) wget accept as a backup
     for tup in tuple_list:

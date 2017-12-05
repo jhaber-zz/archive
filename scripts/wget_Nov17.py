@@ -18,23 +18,24 @@ full_data = "/vol_b/data/Charter-school-identities/data/charter_URLs_2014.csv"
 wget_folder = "/vol_b/data/wget/Nov_2017/"
 test_folder = "/vol_b/data/wget/parll_wget/"
 
-#setting charter school data file; running now on URL list of full charter population
-URL_data = full_data 
 
-#setting variables based on data source
-if URL_data==full_data:
-    URL_var = "TRUE_URL"
-    NAME_var = "SCH_NAME"
-    ADDR_var = "ADDRESS"
-elif URL_data==micro_sample13:
-    URL_var = "URL"
-    NAME_var = "SCHNAM"
-    ADDR_var = "ADDRESS"
-else:
-    try:
-        print("Error processing variables from data file " + str(URL_data) + "!")
-    except:
-        print("ERROR: No data source established!")
+def get_vars(data):
+    """This sets variables based on the data source called."""
+    if data==full_data:
+        URL_variable = "TRUE_URL"
+        NAME_variable = "SCH_NAME"
+        ADDR_variable = "ADDRESS"
+    elif data==micro_sample13:
+        URL_variable = "URL"
+        NAME_variable = "SCHNAM"
+        ADDR_variable = "ADDRESS"
+    else:
+        try:
+            print("Error processing variables from data file " + str(URL_data) + "!")
+        except:
+            print("ERROR: No data source established!")
+    
+    return(URL_variable,NAME_variable,ADDR_variable)
 
 
 # ### Helper Functions
@@ -207,7 +208,7 @@ exclude_dirs = "/event*,/Event*,/event,/Event,/events,/Events,/*/Event,/*/event,
 /*calendar*,/*Calendar*,/calendar,/Calendar,/*/calendar,/*/Calendar/,/*/*/calendar,/*/*/Calendar/,\
 /calendar-core,/calendar_core,/Calendar-Core,/Calendar_Core,/calendarcore,/CalendarCore,\
 /school-calendar,/apps/school-calendar,/school_calendar,/apps/school_calendar,\
-/about/calendar,\
+/about/calendar,/about-us/calendar,/AboutUs/calendar,\
 *login*,/*Login*,/login,/Login,/*/login,/*/Login,/*/*/login,/*/*/Login,/_login,\
 /misc,/Misc,/*/misc,/*/Misc,/*/*/misc,/*/*/Misc,/miscellaneous,/*/miscellaneous,/*/*/miscellaneous,\
 /portal,/Portal,/portal*,/Portal*,/portals,/Portals,/*/portals,/*/Portals,/*/portal,/*/Portal,/*/*/portal,/*/*/portals,/*/*/Portal,/*/*/Portals,\
@@ -237,7 +238,7 @@ reject_files = ' --reject "events,Events,news,News,calendar,calendars,Calendar,C
 
 #Define most general wget parameters (more specific params below)
 #This list would not be so long if Parallel would allow wget to read from /usr/local/etc/wgetrc
-wget_general_options = '--no-parent --level 8 --no-check-certificate \
+wget_general_options = '--no-parent --level 5 --no-check-certificate \
 --recursive --adjust-extension --convert-links --page-requisites --random-wait \
 -e --robots=off --follow-ftp --secure-protocol=auto --retry-connrefused --no-remove-listing \
 --local-encoding=UTF-8 --no-cookies --default-page=default --server-response --trust-server-names \
@@ -403,12 +404,14 @@ sample = [] # make empty list
 with open(URL_data, 'r', encoding = 'Latin1')as csvfile: # open file
     reader = csv.DictReader(csvfile) # create a reader
     for row in reader: # loop through rows
-        sample.append(row) # append each row to the list
-        
+        sample.append(row) # append each row to the list   
 #note: each row, sample[i] is a dictionary with keys as column name and value as info
 
+#setting charter school data file; running now on URL list of full charter population
+URL_data = full_data 
+URL_var,NAME_var,URL_var = get_vars(URL_data) #get varnames depending on data source
 
-# turning this into tuples we can use with wget!
+# turning vars into tuples we can use with wget!
 # first, make some empty lists
 url_list = []
 name_list = []

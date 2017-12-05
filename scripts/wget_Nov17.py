@@ -345,7 +345,7 @@ def run_wget_parallel(tuple_list, parent_folder):
         
     # wget and parallel are shell commands, so we run with the subprocess module:
     # Note: unlike Python, the parallel package uses standard indexing (1,2,3 not 0,1,2)
-    subprocess.run('time parallel --jobs 100 --eta --progress --bar --will-cite --link --keep-order \
+    subprocess.run('time parallel --jobs 500 --eta --progress --bar --will-cite --link --keep-order \
     -- wget ' + wget_general_options + accept_exts + ' --user-agent=Mozilla \
     --warc-file={3}/{2}_warc --warc-cdx --warc-max-size=1G \
     directory-prefix=' + parent_folder + ' --referer={3} {1} \
@@ -354,7 +354,8 @@ def run_wget_parallel(tuple_list, parent_folder):
     #--verbose
     #--append-output={3}/{2}_wgetNov17_log.txt
     
-    # If a site produces no HTML files, then we run (non-parallel) wget accept as a backup
+    #A THOROUGH BUT TIME-INEFFICIENT ADDENDUM: 
+    #If a site produces no HTML files, then we run (non-parallel) wget accept as a backup
     '''for tup in tuple_list:
         # process tuple_list into useful variables
         school_link = tup[0]
@@ -401,7 +402,7 @@ def run_wget_parallel(tuple_list, parent_folder):
 
 #set charter school data file and corresponding varnames
 URL_data = full_data #running now on URL list of full charter population
-URL_var,NAME_var,URL_var = get_vars(URL_data) #get varnames depending on data source
+URL_var,NAME_var,ADDR_var = get_vars(URL_data) #get varnames depending on data source
 
 sample = [] # make empty list
 with open(URL_data, 'r', encoding = 'Latin1')as csvfile: # open file

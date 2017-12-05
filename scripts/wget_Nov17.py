@@ -19,6 +19,8 @@ wget_folder = "/vol_b/data/wget/Nov_2017/"
 test_folder = "/vol_b/data/wget/parll_wget/"
 
 
+# ### Helper Functions
+
 def get_vars(data):
     """This sets variables based on the data source called."""
     if data==full_data:
@@ -36,9 +38,6 @@ def get_vars(data):
             print("ERROR: No data source established!")
     
     return(URL_variable,NAME_variable,ADDR_variable)
-
-
-# ### Helper Functions
 
 '''def get_parent_link(text):
     """Function to get parents' links. Return a list of valid links."""
@@ -398,7 +397,11 @@ def run_wget_parallel(tuple_list, parent_folder):
 
 
     
-# ### Running wget
+# ### Preparing data for wget run
+
+#set charter school data file and corresponding varnames
+URL_data = full_data #running now on URL list of full charter population
+URL_var,NAME_var,URL_var = get_vars(URL_data) #get varnames depending on data source
 
 sample = [] # make empty list
 with open(URL_data, 'r', encoding = 'Latin1')as csvfile: # open file
@@ -407,17 +410,13 @@ with open(URL_data, 'r', encoding = 'Latin1')as csvfile: # open file
         sample.append(row) # append each row to the list   
 #note: each row, sample[i] is a dictionary with keys as column name and value as info
 
-#setting charter school data file; running now on URL list of full charter population
-URL_data = full_data 
-URL_var,NAME_var,URL_var = get_vars(URL_data) #get varnames depending on data source
-
 # turning vars into tuples we can use with wget!
 # first, make some empty lists
 url_list = []
 name_list = []
 terms_list = []
 
-# now let's fill these lists with content from the sample
+# now fill lists with content from sample
 for school in sample:
     if (school[URL_var] is not None and school[URL_var]!=0 and school[URL_var]!="0"):
         url_list.append(school[URL_var])
@@ -426,7 +425,7 @@ for school in sample:
 
         
 school_tuple_list = list(zip(url_list, name_list, terms_list))
-# Let's check what these tuples look like:
+#Here's what these tuples look like:
 #print(tuple_list[:3])
 #print("\n", tuple_list[1][1].title())
 
@@ -436,6 +435,8 @@ school_tuple_list = list(zip(url_list, name_list, terms_list))
 #expt_links = ['https://vangoghcs-lausd-ca.schoolloop.com/', 'https://cms.springbranchisd.com/wais/']
 #school_tuple_test = [school for school in school_tuple_list if school[0] in expt_links]
 school_tuple_test = school_tuple_list
+
+# ### Running wget
 
 #run_wget_command(school_tuple_test, test_folder)
 

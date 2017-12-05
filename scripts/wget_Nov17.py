@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8
 
-# # Wget using reject, THEN accept!
+# # Wget with `parallel` and --accept!
 
 # import necessary libraries for smart use of wget
 import os, subprocess #for running terminal commands and folder management
@@ -17,6 +17,24 @@ micro_sample13 = "/vol_b/data/Charter-school-identities/data/micro-sample13_code
 full_data = "/vol_b/data/Charter-school-identities/data/charter_URLs_2014.csv"
 wget_folder = "/vol_b/data/wget/Nov_2017/"
 test_folder = "/vol_b/data/wget/parll_wget/"
+
+#setting charter school data file; running now on URL list of full charter population
+URL_data = full_data 
+
+#setting variables based on data source
+if URL_data==full_data:
+    URL_var = "TRUE_URL"
+    NAME_var = "SCH_NAME"
+    ADDR_var = "ADDRESS"
+elif URL_data==micro_sample13:
+    URL_var = "URL"
+    NAME_var = "SCHNAM"
+    ADDR_var = "ADDRESS"
+else:
+    try:
+        print("Error processing variables from data file " + str(URL_data) + "!")
+    except:
+        print("ERROR: No data source established!")
 
 
 # ### Helper Functions
@@ -180,14 +198,20 @@ def write_list(alist, file_name):
 --convert-links --execute robots=off --directory-prefix=. --user-agent=Mozilla --follow-tags=a http://{} < ../list.txt'''
 
 
-#List of unnecessary/huge directories to exclude from web download:
+#List of non-essential and likely huge directories to exclude from web download:
 exclude_dirs = "/event*,/Event*,/event,/Event,/events,/Events,/*/Event,/*/event,/*/*/Event,/*/*/event,/*/*/Events,/*/*/events,\
 /apps/events,/apps/Events,/Apps/events,/Apps/Events,/apps/event,/apps/Event,/Apps/event,Apps/Event,\
 /attend-event,/attend-events,/Attend-Event,/Attend-Events,/apps/attend-events,/apps/attend-event,\
+/event-calendar,/event_calendar,/Event-Calendar,/Event-calendar,/Event_Calendar,/apps/event-calendar,/apps/event_calendar,/apps/Event-Calendar,/apps/Event_Calendar,\
+/pride/events,/tribe-events,/tribe-event,/tribe_event,/tribe_events,/apps/events2,/events2,/apps/Events2,\
 /*calendar*,/*Calendar*,/calendar,/Calendar,/*/calendar,/*/Calendar/,/*/*/calendar,/*/*/Calendar/,\
-*login*,/*Login*,/login,/Login,/*/login,/*/Login,/*/*/login,/*/*/Login,\
+/calendar-core,/calendar_core,/Calendar-Core,/Calendar_Core,/calendarcore,/CalendarCore,\
+/school-calendar,/apps/school-calendar,/school_calendar,/apps/school_calendar,\
+/about/calendar,\
+*login*,/*Login*,/login,/Login,/*/login,/*/Login,/*/*/login,/*/*/Login,/_login,\
 /misc,/Misc,/*/misc,/*/Misc,/*/*/misc,/*/*/Misc,/miscellaneous,/*/miscellaneous,/*/*/miscellaneous,\
 /portal,/Portal,/portal*,/Portal*,/portals,/Portals,/*/portals,/*/Portals,/*/portal,/*/Portal,/*/*/portal,/*/*/portals,/*/*/Portal,/*/*/Portals,\
+/gateway,/apps/gateway,/Gateway,\
 /news,/News,/*/news,/*/News,/*/*/news,/*/*/News,\
 /file,/files,/File,/Files,/*/file,/*/files,/*/File,/*/Files,/*/*/file,/*/*/files,/*/*/File,/*/*/Files,\
 /contact,/Contact,/contact-us,/Contact-us,/Contact-Us,/contactus,/ContactUs,/Contactus,/contact_us,/Contact_us,/Contact_Us,\
@@ -199,20 +223,27 @@ exclude_dirs = "/event*,/Event*,/event,/Event,/events,/Events,/*/Event,/*/event,
 /facilities,/Facilities,/apps/facilities,/apps/Facilities,\
 /2007,/2008,/2009,/2010,/2011,/2012,/2013,/2014,/2015,/2016,/2017,/2018,\
 /css,/CSS,/*/css,/*/CSS,/*/*/css,/*/*/CSS,\
-/cms,/CMS,/*/cms,/*/CMS,/*/*/cms,/*/*/CMS,\
+/cms,/CMS,/*/cms,/*/CMS,/*/*/cms,/*/*/CMS,/cms_files,/cms_file,/apps/cms_files,/apps/cms_file,\
+/Blackboard,/blackboard,/chalkboard,/apps/chalkboard,/apps/Chalkboard,/apps/chalk_board,/chalk_board,/chalk-board,/apps/chalk-board,/DesktopModules,/desktopmodules,/Desktop_Modules,/desktop_modules,/wp-content,/wp_content,\
+/apps/email,/email,/blog,/Blog,/apps/blog,/apps/Blog,/site/blog,/site/Blog,/blog-and-news,\
+/protected,/_protected,/Protected,/_Protected,/apps/protected,/apps/protected,/apps/Protected,/apps/_protected,/apps/_Protected,\
 /plugin,/plugins,/Plugin,/Plugins,/*/plugin,/*/Plugin,/*/plugins,/*/Plugins,/*/*/plugin,/*/*/plugins,/*/*/Plugin,/*/*/Plugins\
-/upload,/uploads,/Upload,/Uploads,/*/upload,/*/uploads,/*/Upload,/*/Uploads,/*/*/upload,/*/*/uploads,/*/*/Upload,/*/*/Uploads"
+/upload,/uploads,/Upload,/Uploads,/*/upload,/*/uploads,/*/Upload,/*/Uploads,/*/*/upload,/*/*/uploads,/*/*/Upload,/*/*/Uploads\
+/downloads,/download,/Download,/Downloads"
 
+#Define files to exclude from download; STARTS WITH SPACE:
+reject_files = ' --reject "events,Events,news,News,calendar,calendars,Calendar,Calendars,contact,Contact,contact-us,Contact-Us,login,Login,SignIn,Download,download\
+*events*,*Events*,*news*,*News*,*calendar*,*calendars*,*Calendar*,*Calendars*,*contact*,*Contact*,*contact-us*,*Contact-Us*,*login*,*Login*,*SignIn*,*Download*,*download*"'
 
 #Define most general wget parameters (more specific params below)
 #This list would not be so long if Parallel would allow wget to read from /usr/local/etc/wgetrc
 wget_general_options = '--no-parent --level 8 --no-check-certificate \
---recursive --adjust-extension --convert-links --page-requisites --verbose --random-wait \
+--recursive --adjust-extension --convert-links --page-requisites --random-wait \
 -e --robots=off --follow-ftp --secure-protocol=auto --retry-connrefused --no-remove-listing \
 --local-encoding=UTF-8 --no-cookies --default-page=default --server-response --trust-server-names \
-header="Accept: text/html"\
---exclude-directories=' + exclude_dirs
+--header="Accept:text/html" --exclude-directories=' + exclude_dirs + reject_files
 
+#--verbose
 #--convert-file-only 
 #--force-directories
 #--show-progress 
@@ -236,14 +267,13 @@ header="Accept: text/html"\
 #Note: THESE EXT LISTS START WITH A SPACE.
 reject_exts = ' --reject .mov,.MOV,.avi,.AVI,.mpg,.MPG,.mpeg,.MPEG,.mp3,.MP3,.mp4,.MP4,.ppt,.PPT,.pptx,.PPTX,.zip,.7z,.pkg,.deb' + \
 ',.png,.PNG,.gif,.GIF,.jpg,.JPG,.jpeg,.JPEG,.pdf,.PDF,.pdf_,.PDF_,.doc,.DOC,.docx,.DOCX,.xls,.XLS,.xlsx,.XLSX,.csv,.CSV' #drop this 2nd line when running at scale
-reject_dirs = ' --exclude-directories=events,Events,news,News,calendar,calendars,Calendar,Calendars,contact,Contact,contact-us,Contact-Us'
-accept_exts = ' .htm,.html,.asp,.aspx,.php,.shtml,.cgi,.php,.pl,.jsp'
+accept_exts = ' --accept .htm,.html,.asp,.aspx,.php,.shtml,.cgi,.php,.pl,.jsp'
 
 def wget_params(link, host, title, parent_folder, wget_genopts):
     '''Define parameters for wget command, given the input URL `link` and the root of directory hierarchy `parent_folder`.'''
 
-    wget_locs = '--directory-prefix=' + parent_folder + ' --referer=' + host +\
-    ' --warc-cdx=' + title + '_cdx --warc-file=' + title + '_warc --warc-max-size=1G'
+    wget_locs = ' --directory-prefix=' + parent_folder + ' --referer=' + host +\
+    ' --warc-cdx --warc-file=' + title + '_warc --warc-max-size=1G'
     #'--append-output=wgetNov17_log.txt
     
     wget_reject_options = wget_genopts + wget_locs + reject_exts
@@ -288,9 +318,6 @@ def run_wget_command(tuple_list, parent_folder):
             print("  Nope! Back-up plan: Running wget with accept options...")
             subprocess.run('time wget user_agent = Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0' + accept_options + ' ' + school_link, stdout=subprocess.PIPE, shell=True, cwd=specific_folder) #back-up plan if reject fails: wget accept!
     
-    # Here's the same command ready to run in shell from within parent_folder: 
-    '''sudo wget --no-parent --recursive --level inf --warc-cdx --no-check-certificate --exclude-directories = "event*,calendar*,*login*,misc,portal,news,css,cms,plugins" directory-prefix={3} --warc-file={3}/{2}_warc --referer={3} --output-file={3}/{2}_wgetNov17_log.txt {1} ::::+ links_list.txt names_list.txt hosts_list.txt'''
-    
     print("\nDone!")    
             
             
@@ -318,16 +345,17 @@ def run_wget_parallel(tuple_list, parent_folder):
         
     # wget and parallel are shell commands, so we run with the subprocess module:
     # Note: unlike Python, the parallel package uses standard indexing (1,2,3 not 0,1,2)
-    subprocess.run('time parallel --jobs 100 --eta --progress --bar --will-cite --link --keep-order --verbose \
+    subprocess.run('time parallel --jobs 100 --eta --progress --bar --will-cite --link --keep-order \
     -- wget ' + wget_general_options + accept_exts + ' --user-agent=Mozilla \
-    --warc-file={3}/{2}_warc --warc-cdx={3}/{2}_cdx --warc-max-size=1G \
+    --warc-file={3}/{2}_warc --warc-cdx --warc-max-size=1G \
     directory-prefix=' + parent_folder + ' --referer={3} {1} \
-    ::::+ links_list.txt names_list.txt hosts_list.txt', stdout=subprocess.PIPE, shell=True, cwd=parent_folder)
+    :::: links_list.txt names_list.txt hosts_list.txt', stdout=subprocess.PIPE, shell=True, cwd=parent_folder)
+    
     #--verbose
     #--append-output={3}/{2}_wgetNov17_log.txt
     
     # If a site produces no HTML files, then we run (non-parallel) wget accept as a backup
-    for tup in tuple_list:
+    '''for tup in tuple_list:
         # process tuple_list into useful variables
         school_link = tup[0]
         school_title = (tup[1]+" "+tup[2][-2:])
@@ -341,7 +369,8 @@ def run_wget_parallel(tuple_list, parent_folder):
             
             reject_options, accept_options = wget_params(school_link, school_host, school_title, parent_folder, wget_general_options)
             
-            subprocess.run('time wget user_agent = Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0' + accept_options + ' ' + school_link, stdout=subprocess.PIPE, shell=True, cwd=parent_folder)
+            subprocess.run('time wget user_agent = "Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0"' + accept_options + ' ' + school_link, stdout=subprocess.PIPE, shell=True, cwd=parent_folder)
+            '''
         
     
     # OLD OPTIONS ETC FOR REFERENCE
@@ -371,7 +400,7 @@ def run_wget_parallel(tuple_list, parent_folder):
 # ### Running wget
 
 sample = [] # make empty list
-with open(micro_sample13, 'r', encoding = 'Latin1')as csvfile: # open file
+with open(URL_data, 'r', encoding = 'Latin1')as csvfile: # open file
     reader = csv.DictReader(csvfile) # create a reader
     for row in reader: # loop through rows
         sample.append(row) # append each row to the list
@@ -387,10 +416,10 @@ terms_list = []
 
 # now let's fill these lists with content from the sample
 for school in sample:
-    if (school["URL"] is not None and school["URL"]!=0 and school["URL"]!="0"):
-        url_list.append(school["URL"])
-        name_list.append(school["SCHNAM"])
-        terms_list.append(school["ADDRESS"])
+    if (school[URL_var] is not None and school[URL_var]!=0 and school[URL_var]!="0"):
+        url_list.append(school[URL_var])
+        name_list.append(school[NAME_var])
+        terms_list.append(school[ADDR_var])
 
         
 school_tuple_list = list(zip(url_list, name_list, terms_list))

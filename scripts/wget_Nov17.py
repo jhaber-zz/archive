@@ -6,6 +6,7 @@
 # import necessary libraries for smart use of wget
 import os, subprocess #for running terminal commands and folder management
 import csv #for reading and writing data to .csv format
+import re #regular expressions
 import shutil
 import urllib
 from urllib.request import urlopen
@@ -203,7 +204,8 @@ exclude_dirs = "/event*,/Event*,/event,/Event,/events,/Events,/*/Event,/*/event,
 /apps/events,/apps/Events,/Apps/events,/Apps/Events,/apps/event,/apps/Event,/Apps/event,Apps/Event,\
 /attend-event,/attend-events,/Attend-Event,/Attend-Events,/apps/attend-events,/apps/attend-event,\
 /event-calendar,/event_calendar,/Event-Calendar,/Event-calendar,/Event_Calendar,/apps/event-calendar,/apps/event_calendar,/apps/Event-Calendar,/apps/Event_Calendar,\
-/pride/events,/tribe-events,/tribe-event,/tribe_event,/tribe_events,/apps/events2,/events2,/apps/Events2,\
+/Carmichael/Events,/Carmichael/Events:Month,/Carmichael/Events:Week,/Carmichael/Events:Day,/Carmichael/Events:Year,\
+/pride/events,/community-events,/tribe-events,/tribe-event,/tribe_event,/tribe_events,/apps/events2,/events2,/apps/Events2,\
 /*calendar*,/*Calendar*,/calendar,/Calendar,/*/calendar,/*/Calendar/,/*/*/calendar,/*/*/Calendar/,\
 /calendar-core,/calendar_core,/Calendar-Core,/Calendar_Core,/calendarcore,/CalendarCore,\
 /school-calendar,/apps/school-calendar,/school_calendar,/apps/school_calendar,\
@@ -293,7 +295,7 @@ def run_wget_command(tuple_list, parent_folder):
     for tup in tuple_list:
         # process tuple_list into useful variables
         school_link = tup[0]
-        school_title = (tup[1]+" "+tup[2][-2:])
+        school_title = re.sub(" ","_",(tup[1]+" "+tup[2][-8:-6]))
         school_address = tup[2]
         school_host = urlparse(school_link).hostname
         
@@ -330,7 +332,7 @@ def run_wget_parallel(tuple_list, parent_folder):
     #make these new lists for input to Parallel: [0] link; [1] readable name (school name + state); [2] root host name
     #new_tuplist = [[tup[0], tup[1]+" "+tup[2], urlparse(tup[0]).hostname] for tup in tuple_list]
     links_list = [tup[0] for tup in tuple_list]
-    names_list = [(tup[1]+" "+tup[2][-2:]) for tup in tuple_list] #to include state (and reduce odds of folder name duplication), add last two chars from ADDRESS
+    names_list = [re.sub(" ","_",(tup[1]+" "+tup[2][-8:-6])) for tup in tuple_list] #to include state (and reduce odds of folder name duplication), add last two chars from ADDRESS
     hosts_list = [urlparse(tup[0]).hostname for tup in tuple_list]
     
     os.chdir(parent_folder) #everything points to parent folder, so start here
@@ -345,12 +347,13 @@ def run_wget_parallel(tuple_list, parent_folder):
         
     # wget and parallel are shell commands, so we run with the subprocess module:
     # Note: unlike Python, the parallel package uses standard indexing (1,2,3 not 0,1,2)
-    subprocess.run('time parallel --jobs 500 --eta --progress --bar --will-cite --link --keep-order \
+    subprocess.run('time parallel --jobs 300 --eta --progress --bar --will-cite --link --keep-order \
     -- wget ' + wget_general_options + accept_exts + ' --user-agent=Mozilla \
-    --warc-file={3}/{2}_warc --warc-cdx --warc-max-size=1G \
-    directory-prefix=' + parent_folder + ' --referer={3} {1} \
-    :::: links_list.txt names_list.txt hosts_list.txt', stdout=subprocess.PIPE, shell=True, cwd=parent_folder)
+    --warc-file={2}_warc --warc-cdx --warc-max-size=1G \
+    --directory-prefix="' + parent_folder + '{2}/" --referer={3} {1} \
+    :::: links_list.txt names_list.txt hosts_list.txt', stdout=subprocess.PIPE, shell=True)
     
+    #cwd=parent_folder
     #--verbose
     #--append-output={3}/{2}_wgetNov17_log.txt
     

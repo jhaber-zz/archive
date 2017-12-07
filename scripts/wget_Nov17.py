@@ -205,16 +205,19 @@ exclude_dirs = "/event*,/Event*,/event,/Event,/events,/Events,/*/Event,/*/event,
 /attend-event,/attend-events,/Attend-Event,/Attend-Events,/apps/attend-events,/apps/attend-event,\
 /event-calendar,/event_calendar,/Event-Calendar,/Event-calendar,/Event_Calendar,/apps/event-calendar,/apps/event_calendar,/apps/Event-Calendar,/apps/Event_Calendar,\
 /Carmichael/Events,/Carmichael/Events:Month,/Carmichael/Events:Week,/Carmichael/Events:Day,/Carmichael/Events:Year,\
-/pride/events,/community-events,/tribe-events,/tribe-event,/tribe_event,/tribe_events,/apps/events2,/events2,/apps/Events2,\
-/*calendar*,/*Calendar*,/calendar,/Calendar,/*/calendar,/*/Calendar/,/*/*/calendar,/*/*/Calendar/,\
+/pride/events,/community-events,/about/events,/tribe-events,/tribe-event,/tribe_event,/tribe_events,\
+/apps/events2,/events2,/apps/Events2,\
+/family-caregiver-resources/calendar,/en/family-caregiver-resources/calendar,/home/calendar,\
+/*calendar*,/*Calendar*,/calendar,/calendars,/Calendar,/Calendars,/*/calendar,/*/Calendar/,/*/*/calendar,/*/*/Calendar/,\
 /calendar-core,/calendar_core,/Calendar-Core,/Calendar_Core,/calendarcore,/CalendarCore,\
-/school-calendar,/apps/school-calendar,/school_calendar,/apps/school_calendar,\
-/about/calendar,/about-us/calendar,/AboutUs/calendar,\
+/school-calendar,/apps/school-calendar,/school_calendar,/apps/school_calendar,/student-life/school-calendar,\
+/about/calendar,/about-us/calendar,/AboutUs/calendar,/calendar-2,/calendar2,\
 *login*,/*Login*,/login,/Login,/*/login,/*/Login,/*/*/login,/*/*/Login,/_login,\
 /misc,/Misc,/*/misc,/*/Misc,/*/*/misc,/*/*/Misc,/miscellaneous,/*/miscellaneous,/*/*/miscellaneous,\
 /portal,/Portal,/portal*,/Portal*,/portals,/Portals,/*/portals,/*/Portals,/*/portal,/*/Portal,/*/*/portal,/*/*/portals,/*/*/Portal,/*/*/Portals,\
 /gateway,/apps/gateway,/Gateway,\
-/news,/News,/*/news,/*/News,/*/*/news,/*/*/News,\
+/news,/News,/*/news,/*/News,/*/*/news,/*/*/News,/news-events,\
+/category/events,/category/event,/category/calendar,\
 /file,/files,/File,/Files,/*/file,/*/files,/*/File,/*/Files,/*/*/file,/*/*/files,/*/*/File,/*/*/Files,\
 /contact,/Contact,/contact-us,/Contact-us,/Contact-Us,/contactus,/ContactUs,/Contactus,/contact_us,/Contact_us,/Contact_Us,\
 /*/contact,/*/Contact,/*/contact-us,/*/Contact-us,/*/Contact-Us,/*/contactus,/*/ContactUs,/*/Contactus,/*/contact_us,/*/Contact_us,/*/Contact_Us,\
@@ -274,7 +277,7 @@ accept_exts = ' --accept .htm,.html,.asp,.aspx,.php,.shtml,.cgi,.php,.pl,.jsp'
 def wget_params(link, host, title, parent_folder, wget_genopts):
     '''Define parameters for wget command, given the input URL `link` and the root of directory hierarchy `parent_folder`.'''
 
-    wget_locs = ' --directory-prefix=' + parent_folder + ' --referer=' + host +\
+    wget_locs = ' --directory-prefix="' + parent_folder + title + '/" --referer=' + host +\
     ' --warc-cdx --warc-file=' + title + '_warc --warc-max-size=1G'
     #'--append-output=wgetNov17_log.txt
     
@@ -300,7 +303,7 @@ def run_wget_command(tuple_list, parent_folder):
         school_host = urlparse(school_link).hostname
         
         # use tuple to create a name for the folder
-        dirname = school_title + " " + school_address #format_folder_name(k, school_title)
+        dirname = school_title #+ " " + school_address #format_folder_name(k, school_title)
         
         os.chdir(parent_folder) #everything points to parent folder, so start here
         if not os.path.exists(dirname): #create dir my_folder if it doesn't exist yet
@@ -315,10 +318,11 @@ def run_wget_command(tuple_list, parent_folder):
         reject_options, accept_options = wget_params(school_link, school_host, school_title, parent_folder, wget_general_options)
         
         print("  Running wget with reject options...")
-        subprocess.run('time wget user_agent = Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0' + reject_options + ' ' + school_link, stdout=subprocess.PIPE, shell=True, cwd=specific_folder)
+        subprocess.run('time wget --user-agent="Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0" ' + reject_options + ' ' + school_link, stdout=subprocess.PIPE, shell=True)
         if not contains_html(specific_folder):
             print("  Nope! Back-up plan: Running wget with accept options...")
-            subprocess.run('time wget user_agent = Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0' + accept_options + ' ' + school_link, stdout=subprocess.PIPE, shell=True, cwd=specific_folder) #back-up plan if reject fails: wget accept!
+            subprocess.run('time wget --user-agent="Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0" ' + accept_options + ' ' + school_link, stdout=subprocess.PIPE, shell=True) #back-up plan if reject fails: wget accept!
+        #cwd=specific_folder
     
     print("\nDone!")    
             
@@ -347,7 +351,7 @@ def run_wget_parallel(tuple_list, parent_folder):
         
     # wget and parallel are shell commands, so we run with the subprocess module:
     # Note: unlike Python, the parallel package uses standard indexing (1,2,3 not 0,1,2)
-    subprocess.run('time parallel --jobs 300 --eta --progress --bar --will-cite --link --keep-order \
+    subprocess.run('time parallel --jobs 350 --eta --progress --bar --will-cite --link --keep-order \
     -- wget ' + wget_general_options + accept_exts + ' --user-agent=Mozilla \
     --warc-file={2}_warc --warc-cdx --warc-max-size=1G \
     --directory-prefix="' + parent_folder + '{2}/" --referer={3} {1} \
@@ -359,22 +363,22 @@ def run_wget_parallel(tuple_list, parent_folder):
     
     #A THOROUGH BUT TIME-INEFFICIENT ADDENDUM: 
     #If a site produces no HTML files, then we run (non-parallel) wget accept as a backup
-    '''for tup in tuple_list:
+    for tup in tuple_list:
         # process tuple_list into useful variables
         school_link = tup[0]
-        school_title = (tup[1]+" "+tup[2][-2:])
+        school_title = re.sub(" ","_",(tup[1]+" "+tup[2][-8:-6]))
         #school_address = tup[2]
         school_host = urlparse(school_link).hostname
         
         if not contains_html(os.path.dirname(school_host)):
             k = 0 # initialize this numerical variable k, which keeps track of which entry in the sample we are on.
             k += 1 # Add one to k, so we start with 1 and increase by 1 all the way up to length of list used to call command
-            print("Not HTML detected from parallel wget! Using (non-parallel) wget accept to capture HTML for " + school_title + ", which is school #" + str(k) + " of " + str(len(tuple_list)) + "...")
+            print("No HTML detected from parallel wget! Using (non-parallel) wget accept to capture HTML for " + school_title + ", which is school #" + str(k) + " of " + str(len(tuple_list)) + "...")
             
             reject_options, accept_options = wget_params(school_link, school_host, school_title, parent_folder, wget_general_options)
             
-            subprocess.run('time wget user_agent = "Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0"' + accept_options + ' ' + school_link, stdout=subprocess.PIPE, shell=True, cwd=parent_folder)
-            '''
+            subprocess.run('time wget --user-agent="Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0" ' + accept_options + ' ' + school_link, stdout=subprocess.PIPE, shell=True, cwd=parent_folder)
+            
         
     
     # OLD OPTIONS ETC FOR REFERENCE

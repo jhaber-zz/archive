@@ -7,6 +7,7 @@
 import os, subprocess #for running terminal commands and folder management
 import csv #for reading and writing data to .csv format
 import re #regular expressions
+import time #for dating things
 import shutil
 import urllib
 from urllib.request import urlopen
@@ -352,6 +353,7 @@ def run_wget_parallel(tuple_list, parent_folder):
     # wget and parallel are shell commands, so we run with the subprocess module:
     # Note: unlike Python, the parallel package uses standard indexing (1,2,3 not 0,1,2)
     subprocess.run('time parallel --jobs 350 --eta --progress --bar --will-cite --link --keep-order \
+    --timeout 1h --resume-failed --joblog joblog_parllwget_' + re.sub("/","-",time.strftime("%m/%d/%Y")) + ' \
     -- wget ' + wget_general_options + accept_exts + ' --user-agent=Mozilla \
     --warc-file={2}_warc --warc-cdx --warc-max-size=1G \
     --directory-prefix="' + parent_folder + '{2}/" --referer={3} {1} \
@@ -363,7 +365,7 @@ def run_wget_parallel(tuple_list, parent_folder):
     
     #A THOROUGH BUT TIME-INEFFICIENT ADDENDUM: 
     #If a site produces no HTML files, then we run (non-parallel) wget accept as a backup
-    for tup in tuple_list:
+    """for tup in tuple_list:
         # process tuple_list into useful variables
         school_link = tup[0]
         school_title = re.sub(" ","_",(tup[1]+" "+tup[2][-8:-6]))
@@ -378,6 +380,7 @@ def run_wget_parallel(tuple_list, parent_folder):
             reject_options, accept_options = wget_params(school_link, school_host, school_title, parent_folder, wget_general_options)
             
             subprocess.run('time wget --user-agent="Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0" ' + accept_options + ' ' + school_link, stdout=subprocess.PIPE, shell=True, cwd=parent_folder)
+            """
             
         
     

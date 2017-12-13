@@ -8,31 +8,34 @@ import os, subprocess #for running terminal commands and folder management
 import csv #for reading and writing data to .csv format
 import re #regular expressions
 import time #for dating things
-import shutil
 import urllib
-from urllib.request import urlopen
 from urllib.parse import urlparse
-from socket import error as SocketError
+#import shutil
+#from urllib.request import urlopen
+#from socket import error as SocketError
 
 #setting directories
 micro_sample13 = "/vol_b/data/Charter-school-identities/data/micro-sample13_coded.csv"
 full_data = "/vol_b/data/Charter-school-identities/data/charter_URLs_2014.csv"
 wget_folder = "/vol_b/data/wget/Nov_2017/"
-test_folder = "/vol_b/data/wget/parll_wget/"
+test_folder = "/vol_b/data/wget/2017parllwget/"
 
 
-# ### Helper Functions
+# ### Defining helper functions
 
 def get_vars(data):
     """This sets variables based on the data source called."""
+    
     if data==full_data:
         URL_variable = "TRUE_URL"
         NAME_variable = "SCH_NAME"
         ADDR_variable = "ADDRESS"
+    
     elif data==micro_sample13:
         URL_variable = "URL"
         NAME_variable = "SCHNAM"
         ADDR_variable = "ADDRESS"
+    
     else:
         try:
             print("Error processing variables from data file " + str(URL_data) + "!")
@@ -193,7 +196,10 @@ def write_list(alist, file_name):
     with open(file_name, 'w') as file_handler:
         for elem in alist:
             file_handler.write("{}\n".format(elem))
-    
+        return
+
+
+# ### Setting wget parameters
 
 # Aaron's command using parallel + wget (for reference):
 '''parallel -j 100 wget --mirror --warc-file={} --warc-cdx --page-requisites --html-extension \
@@ -238,22 +244,23 @@ exclude_dirs = "/event*,/Event*,/event,/Event,/events,/Events,/*/Event,/*/event,
 /downloads,/download,/Download,/Downloads"
 
 #Define files to exclude from download; STARTS WITH SPACE:
-reject_files = ' --reject "events,Events,news,News,calendar,calendars,Calendar,Calendars,contact,Contact,contact-us,Contact-Us,login,Login,SignIn,Download,download\
-*events*,*Events*,*news*,*News*,*calendar*,*calendars*,*Calendar*,*Calendars*,*contact*,*Contact*,*contact-us*,*Contact-Us*,*login*,*Login*,*SignIn*,*Download*,*download*"'
+reject_files = ' --reject "events,Events,news,News,calendar,calendars,Calendar,Calendars,contact,Contact,contact-us,Contact-Us,login,Login,SignIn,Download,download,\
+*events*,*Events*,*News*,*calendar*,*calendars*,*Calendar*,*Calendars*,*contact*,*Contact*,*contact-us*,*Contact-Us*,*login*,*Login*,*SignIn*,*Download*"'
 
+
+#---------------------------------------------------------------
 #Define most general wget parameters (more specific params below)
 #This list would not be so long if Parallel would allow wget to read from /usr/local/etc/wgetrc
-wget_general_options = '--no-parent --level 5 --no-check-certificate \
---recursive --adjust-extension --convert-links --page-requisites --random-wait \
--e --robots=off --follow-ftp --secure-protocol=auto --retry-connrefused --no-remove-listing \
+wget_general_options = '--no-parent --level 7 --no-check-certificate \
+--recursive --adjust-extension --convert-links --page-requisites --wait=15 --random-wait \
+-e --robots=off --follow-ftp --secure-protocol=auto --retry-connrefused --tries=12 --no-remove-listing \
 --local-encoding=UTF-8 --no-cookies --default-page=default --server-response --trust-server-names \
 --header="Accept:text/html" --exclude-directories=' + exclude_dirs + reject_files
+#---------------------------------------------------------------
 
-#--verbose
-#--convert-file-only 
-#--force-directories
-#--show-progress 
-#user_agent = Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0
+#Other options:
+#--verbose --convert-file-only --force-directories --show-progress 
+#--user_agent = Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0
 
 # Some of these options explained: 
 '''
@@ -271,15 +278,18 @@ wget_general_options = '--no-parent --level 5 --no-check-certificate \
 
 #To help with parsimony/download speeds, these lists expand rejections and limit acceptances:
 #Note: THESE EXT LISTS START WITH A SPACE.
+
 reject_exts = ' --reject .mov,.MOV,.avi,.AVI,.mpg,.MPG,.mpeg,.MPEG,.mp3,.MP3,.mp4,.MP4,.ppt,.PPT,.pptx,.PPTX,.zip,.7z,.pkg,.deb' + \
 ',.png,.PNG,.gif,.GIF,.jpg,.JPG,.jpeg,.JPEG,.pdf,.PDF,.pdf_,.PDF_,.doc,.DOC,.docx,.DOCX,.xls,.XLS,.xlsx,.XLSX,.csv,.CSV' #drop this 2nd line when running at scale
+
 accept_exts = ' --accept .htm,.html,.asp,.aspx,.php,.shtml,.cgi,.php,.pl,.jsp'
+
 
 def wget_params(link, host, title, parent_folder, wget_genopts):
     '''Define parameters for wget command, given the input URL `link` and the root of directory hierarchy `parent_folder`.'''
 
-    wget_locs = ' --directory-prefix="' + parent_folder + title + '/" --referer=' + host +\
-    ' --warc-cdx --warc-file=' + title + '_warc --warc-max-size=1G'
+    wget_locs = ' --directory-prefix="' + parent_folder + title + '/" --referer=' + host + ' \
+    --warc-cdx --warc-file=' + title + '_warc --warc-max-size=1.5G'
     #'--append-output=wgetNov17_log.txt
     
     wget_reject_options = wget_genopts + wget_locs + reject_exts
@@ -289,8 +299,9 @@ def wget_params(link, host, title, parent_folder, wget_genopts):
     return(wget_reject_options, wget_accept_options)
 
 
+# ### Defining wget and parallel wget functions
 
-def run_wget_command(tuple_list, parent_folder):
+'''def run_wget_command(tuple_list, parent_folder):
     """wget on list of tuples (holding link, school name, address) and print output to appropriate folders. 
     Uses two kinds of wget: Reject approach is more comprehensive and thus restrictive, we'll try it first;
     If that doesn't give any .html files, then use accept approach! This gives less results but is more reliable.
@@ -325,7 +336,8 @@ def run_wget_command(tuple_list, parent_folder):
             subprocess.run('time wget --user-agent="Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0" ' + accept_options + ' ' + school_link, stdout=subprocess.PIPE, shell=True) #back-up plan if reject fails: wget accept!
         #cwd=specific_folder
     
-    print("\nDone!")    
+    print("\nDone!")
+    '''
             
             
 
@@ -353,19 +365,24 @@ def run_wget_parallel(tuple_list, parent_folder):
     # wget and parallel are shell commands, so we run with the subprocess module:
     # Note: unlike Python, the parallel package uses standard indexing (1,2,3 not 0,1,2)
     subprocess.run('time parallel --jobs 350 --eta --progress --bar --will-cite --link --keep-order \
-    --timeout 1h --resume-failed --joblog joblog_parllwget_' + re.sub("/","-",time.strftime("%m/%d/%Y")) + ' \
+    --timeout 1.5h --resume-failed --joblog joblog_parllwget_' + re.sub("/","-",time.strftime("%m/%d/%Y")) + ' \
     -- wget ' + wget_general_options + accept_exts + ' --user-agent=Mozilla \
-    --warc-file={2}_warc --warc-cdx --warc-max-size=1G \
+    --warc-file={2}_warc --warc-cdx --warc-max-size=1.5G \
     --directory-prefix="' + parent_folder + '{2}/" --referer={3} {1} \
     :::: links_list.txt names_list.txt hosts_list.txt', stdout=subprocess.PIPE, shell=True)
     
-    #cwd=parent_folder
-    #--verbose
-    #--append-output={3}/{2}_wgetNov17_log.txt
+    #Other options:
+    #cwd=parent_folder --verbose --append-output={3}/{2}_wgetNov17_log.txt
+    
     
     #A THOROUGH BUT TIME-INEFFICIENT ADDENDUM: 
+    
     #If a site produces no HTML files, then we run (non-parallel) wget accept as a backup
-    """for tup in tuple_list:
+    k=0 #initialize numerical variable k, which keeps track of which entry in the sample we are on.
+    m=0 #initialize numerical variable m, which keeps track of how many schools don't yet have HTML in their folders. 
+    
+    for tup in tuple_list:
+        k+=1
         # process tuple_list into useful variables
         school_link = tup[0]
         school_title = re.sub(" ","_",(tup[1]+" "+tup[2][-8:-6]))
@@ -373,14 +390,13 @@ def run_wget_parallel(tuple_list, parent_folder):
         school_host = urlparse(school_link).hostname
         
         if not contains_html(os.path.dirname(school_host)):
-            k = 0 # initialize this numerical variable k, which keeps track of which entry in the sample we are on.
-            k += 1 # Add one to k, so we start with 1 and increase by 1 all the way up to length of list used to call command
-            print("No HTML detected from parallel wget! Using (non-parallel) wget accept to capture HTML for " + school_title + ", which is school #" + str(k) + " of " + str(len(tuple_list)) + "...")
+            m+=1 # Add one to k, so we start with 1 and increase by 1 all the way up to length of list used to call command
+            print("No HTML detected from parallel wget! Using (non-parallel) wget accept to capture HTML for " + school_title + ", which is overall school #" + str(k) + " and non-HTML schools #" + str(m) + "  of a total of " + str(len(tuple_list)) + " schools...")
             
             reject_options, accept_options = wget_params(school_link, school_host, school_title, parent_folder, wget_general_options)
             
             subprocess.run('time wget --user-agent="Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0" ' + accept_options + ' ' + school_link, stdout=subprocess.PIPE, shell=True, cwd=parent_folder)
-            """
+            
             
         
     
@@ -415,7 +431,7 @@ URL_data = full_data #running now on URL list of full charter population
 URL_var,NAME_var,ADDR_var = get_vars(URL_data) #get varnames depending on data source
 
 sample = [] # make empty list
-with open(URL_data, 'r', encoding = 'Latin1')as csvfile: # open file
+with open(URL_data, 'r', encoding = 'Latin1') as csvfile: # open file
     reader = csv.DictReader(csvfile) # create a reader
     for row in reader: # loop through rows
         sample.append(row) # append each row to the list   
@@ -434,7 +450,6 @@ for school in sample:
         name_list.append(school[NAME_var])
         terms_list.append(school[ADDR_var])
 
-        
 school_tuple_list = list(zip(url_list, name_list, terms_list))
 #Here's what these tuples look like:
 #print(tuple_list[:3])
@@ -445,25 +460,27 @@ school_tuple_list = list(zip(url_list, name_list, terms_list))
 
 #expt_links = ['https://vangoghcs-lausd-ca.schoolloop.com/', 'https://cms.springbranchisd.com/wais/']
 #school_tuple_test = [school for school in school_tuple_list if school[0] in expt_links]
-school_tuple_test = school_tuple_list
+#school_tuple_test = school_tuple_list[:50]
+
 
 # ### Running wget
 
-#run_wget_command(school_tuple_test, test_folder)
+#run_wget_command(school_tuple_list, test_folder)
 
-run_wget_parallel(school_tuple_test, test_folder)
+run_wget_parallel(school_tuple_list, test_folder)
 
 
-# ### Limitation of wget
-# 
-# -only works for static HTML and it doesn’t support JavaScript. Thus any element generated by JS will not be captured. 
+# ### Limits of wget--and alternatives!
+
+# Wget only works for static HTML and it doesn’t support JavaScript. Thus any element generated by JS will not be captured. 
 
 # More info:
-# 
 # https://www.petekeen.net/archiving-websites-with-wget
-# 
 # http://askubuntu.com/questions/411540/how-to-get-wget-to-download-exact-same-web-page-html-as-browser
-# 
 # https://www.reddit.com/r/linuxquestions/comments/3tb7vu/wget_specify_dns_server/
-# failed: nodename nor servname provided, or not known.
-# 
+
+# Selenium provides a better way to scrape JS-heavy sites:
+# https://medium.com/@hoppy/how-to-test-or-scrape-javascript-rendered-websites-with-python-selenium-a-beginner-step-by-c137892216aa
+
+# To see Python scripts using Selenium to crawl, check out our team's repo here:
+# https://github.com/URAP-charter/web_scraping

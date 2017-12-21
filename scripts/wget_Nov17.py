@@ -10,15 +10,11 @@ import re #regular expressions
 import time #for dating things
 import urllib
 from urllib.parse import urlparse
-#import shutil
-#from urllib.request import urlopen
-#from socket import error as SocketError
 
 #setting directories
 micro_sample13 = "/vol_b/data/Charter-school-identities/data/micro-sample13_coded.csv"
 full_data = "/vol_b/data/Charter-school-identities/data/charter_URLs_2014.csv"
-wget_folder = "/vol_b/data/wget/Nov_2017/"
-test_folder = "/vol_b/data/wget/2017parllwget/"
+wget_folder = "/vol_b/data/wget/2017parllwget/"
 
 
 # ### Defining helper functions
@@ -44,6 +40,7 @@ def get_vars(data):
     
     return(URL_variable,NAME_variable,ADDR_variable)
 
+
 '''def get_parent_link(text):
     """Function to get parents' links. Return a list of valid links."""
     ls= get_parent_link_helper(5, text, []);
@@ -63,7 +60,7 @@ def get_parent_link_helper(level, text, result):
     else:
         return(result)
 
-    
+
 def check(url):
     """ Helper function, check if url is a valid list <- our backup plan
     This function helps to check the url that has service unavailable issues
@@ -105,81 +102,7 @@ def check_url(url):
         pass
     print("Encountered this invalid link: " + str(url) +" ---Error code: " + str(code))
     return False    
-
-
-def format_folder_name (k, name):
-    """Format a folder nicely for readability and easy access"""
-    if k < 10: # Add two zeros to the folder name if k is less than 10 (for ease of organizing the output folders)
-        dirname = "00" + str(k) + " " + name
-    elif k < 100: # Add one zero if k is less than 100
-        dirname = "0" + str(k) + " " + name
-    else: # Add nothing if k>100
-        dirname = str(k) + " " + name
-    return dirname
-
-def count_with_file_ext(folder, ext):
-    count = 0
-    for r,d,f in os.walk(my_folder):
-        for file in f:
-            if file.endswith(ext):
-                count +=1
-    return count 
-
-def write_numstr(num, content, file_name):
-    """write a file and add num line at the beginning of line"""
-    with open(file_name, "a") as text_file:
-        text_file.write(str(num) + "\t" + content +"\n")
-
-def write_str(content, file_name):
-    """Write str to file"""
-    with open(file_name, "a") as text_file:
-        text_file.write(content)
-        
-def reset(folder, text_file_1, text_file_2):
-    """Deletes all files in a folder and set 2 text files to blank"""
-    parent_folder = folder[: folder.rindex('/')]
-    shutil.rmtree(folder)
-    os.makedirs(folder)
-    filelist = [ f for f in os.listdir(folder) if f.endswith(".bak") ]
-    for f in filelist:
-        os.unlink(f)
-    for file_name in [text_file_1, text_file_2]:
-        reset_text_file(file_name)
-        
-def reset_text_file(file_name):
-    if os.path.exists(file_name):
-            with open(file_name, "w") as text_file:
-                text_file.write("")
-
-
-
-def read_txt(txt_file):
-    links = []
-    count = 0
-    with open(txt_file) as f:
-        for line in f:   
-            
-            elem =  line.split('\t')[1].rstrip()
-            count +=1
-    
-#             print(elem)
-            links += [elem.rstrip()]
-    return links, count
-
-def read_txt_2(txt_file):
-    links = []
-    count = 0
-    with open(txt_file) as f:
-        for line in f:   
-            
-#             elem =  line.split('\t')[1].rstrip()
-#             if elem.endswith('\'):
-#                 elem = elem[:-1]
-            count +=1
-    
-#             print(elem)
-            links += [line.rstrip()]
-    return links, count'''
+'''
 
 
 def contains_html(my_folder):
@@ -191,6 +114,7 @@ def contains_html(my_folder):
                 return True
     return False
 
+
 def write_list(alist, file_name):
     '''Write alist to file_name'''
     with open(file_name, 'w') as file_handler:
@@ -201,7 +125,7 @@ def write_list(alist, file_name):
 
 # ### Setting wget parameters
 
-# Aaron's command using parallel + wget (for reference):
+# Template command-line use of parallel + wget:
 '''parallel -j 100 wget --mirror --warc-file={} --warc-cdx --page-requisites --html-extension \
 --convert-links --execute robots=off --directory-prefix=. --user-agent=Mozilla --follow-tags=a http://{} < ../list.txt'''
 
@@ -252,7 +176,7 @@ reject_files = ' --reject "events,Events,news,News,calendar,calendars,Calendar,C
 #Define most general wget parameters (more specific params below)
 #This list would not be so long if Parallel would allow wget to read from /usr/local/etc/wgetrc
 wget_general_options = '--no-parent --level 7 --no-check-certificate \
---recursive --adjust-extension --convert-links --page-requisites --wait=15 --random-wait \
+--recursive --adjust-extension --convert-links --page-requisites --wait=3 --random-wait \
 -e --robots=off --follow-ftp --secure-protocol=auto --retry-connrefused --tries=12 --no-remove-listing \
 --local-encoding=UTF-8 --no-cookies --default-page=default --server-response --trust-server-names \
 --header="Accept:text/html" --exclude-directories=' + exclude_dirs + reject_files
@@ -398,8 +322,6 @@ def run_wget_parallel(tuple_list, parent_folder):
             subprocess.run('time wget --user-agent="Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:40.0) Gecko/20100101 Firefox/40.0" ' + accept_options + ' ' + school_link, stdout=subprocess.PIPE, shell=True, cwd=parent_folder)
             
             
-        
-    
     # OLD OPTIONS ETC FOR REFERENCE
     '''"(echo {};sleep 0.1"
     --bar --progress --will-cite --max-replace-args=3
@@ -416,9 +338,7 @@ def run_wget_parallel(tuple_list, parent_folder):
               ' directory-prefix=' + parent_folder + '{} --warc-file=' + parent_folder + 'warc-{} \
               --referer={} --append-output=' + parent_folder + 'wgetNov17_log.txt \
               {} < links_list.txt', stdout=subprocess.PIPE, shell=True, cwd=parent_folder)
-    
-    # Here's the same command ready to run in shell from within parent_folder: 
-    sudo parallel --jobs 100 --eta --progress --bar --will-cite --link --keep-order --verbose -- wget --no-parent --force-directories --recursive --level inf --warc-cdx --convert-file-only --no-check-certificate --exclude-directories = "event*,calendar*,*login*,misc,portal,news,css,cms,plugins" directory-prefix={3} --warc-file={3}/{2}_warc --referer={3} --output-file={3}/{2}_wgetNov17_log.txt {1} ::::+ links_list.txt names_list.txt hosts_list.txt'''
+    '''
     
     print("\nDone!")    
 
@@ -465,9 +385,9 @@ school_tuple_list = list(zip(url_list, name_list, terms_list))
 
 # ### Running wget
 
-#run_wget_command(school_tuple_list, test_folder)
+#run_wget_command(school_tuple_list, wget_folder)
 
-run_wget_parallel(school_tuple_list, test_folder)
+run_wget_parallel(school_tuple_list, wget_folder)
 
 
 # ### Limits of wget--and alternatives!

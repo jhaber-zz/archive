@@ -176,7 +176,7 @@ reject_files = ' --reject "events,Events,news,News,calendar,calendars,Calendar,C
 #Define most general wget parameters (more specific params below)
 #This list would not be so long if Parallel would allow wget to read from /usr/local/etc/wgetrc
 wget_general_options = '--no-parent --level 7 --no-check-certificate \
---recursive --adjust-extension --convert-links --page-requisites --wait=3 --random-wait \
+--recursive --adjust-extension --convert-links --page-requisites --wait=2 --random-wait \
 -e --robots=off --follow-ftp --secure-protocol=auto --retry-connrefused --tries=12 --no-remove-listing \
 --local-encoding=UTF-8 --no-cookies --default-page=default --server-response --trust-server-names \
 --header="Accept:text/html" --exclude-directories=' + exclude_dirs + reject_files

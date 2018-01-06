@@ -1,19 +1,9 @@
-
-# coding: utf-8
-
-# In[ ]:
-
-
 #!/usr/bin/env python
 # -*- coding: UTF-8
-
 
 # # Parsing & Categorizing HTML from `wget` run!
 
 # ## Initializing
-
-# In[ ]:
-
 
 # import necessary libraries
 import os, re, fnmatch # for navigating file trees and working with strings
@@ -35,13 +25,10 @@ import lxml # for fast HTML parsing with BS
 bsparser = "lxml"
 
 
-# In[ ]:
-
-
 # ### Set script options
 
 Debug = False # Set to "True" for extra progress reports while algorithms run
-notebook = True # Use different file paths depending on whether files are being accessed from shell (False) or within a Jupyter notebook (True)
+notebook = False # Use different file paths depending on whether files are being accessed from shell (False) or within a Jupyter notebook (True)
 usefile = False # Set to "True" if loading from file a dicts_list to add to. Confirms with user input first!
 workstation = False # If working from office PC
 
@@ -53,13 +40,10 @@ inline_tags = ["b", "big", "i", "small", "tt", "abbr", "acronym", "cite", "dfn",
                "span", "sub", "sup"] # this list helps with eliminating junk tags when parsing HTML
 
 
-# In[ ]:
-
-
 # ### Set directories
 
 if workstation and notebook:
-    dir_prefix = "C:\\Users\\Jaren\\Documents\\Charter-school-identities\\"
+    dir_prefix = "C:\\Users\\Jaren\\Documents\\Charter-school-identities\\" # One level further down than the others
 elif notebook:
     dir_prefix = "/home/jovyan/work/"
 else:
@@ -70,7 +54,8 @@ example_schoolname = "TWENTY-FIRST_CENTURY_NM"
 
 if workstation and notebook:
     micro_sample13 = dir_prefix + "data\\micro-sample13_coded.csv" #data location for random micro-sample of 300 US charter schools
-    full_schooldata = dir_prefix + "data\\charter_URLs_2014.csv" #data location for 2014 population of US charter schools
+    URL_schooldata = dir_prefix + "data\\charter_URLs_2014.csv" #data location for 2014 population of US charter schools
+    full_schooldata = dir_prefix + "data\\charter_merged_2014.csv"
     example_file = dir_prefix + "data\\example_file.html" #example_folder + "21stcenturypa.com/wp/default?page_id=27.tmp.html"
     dicts_dir = dir_prefix + "dicts\\" # Directory in which to find & save dictionary files
     save_dir = dir_prefix + "data\\" # Directory in which to save data files
@@ -81,14 +66,11 @@ else:
     example_file = dir_prefix + "wget/example_file.html" #example_folder + "21stcenturypa.com/wp/default?page_id=27.tmp.html"
 
     micro_sample13 = dir_prefix + "Charter-school-identities/data/micro-sample13_coded.csv" #data location for random micro-sample of 300 US charter schools
-    full_schooldata = dir_prefix + "Charter-school-identities/data/charter_URLs_2014.csv" #data location for 2014 population of US charter schools
+    URL_schooldata = dir_prefix + "Charter-school-identities/data/charter_URLs_2014.csv" #data location for 2014 population of US charter schools
+    full_schooldata = dir_prefix + "Charter-school-identities/data/charter_merged_2014.csv"
     dicts_dir = dir_prefix + "Charter-school-identities/dicts/" # Directory in which to find & save dictionary files
     save_dir = dir_prefix + "Charter-school-identities/data/" # Directory in which to save data files
     
-
-
-# In[ ]:
-
 
 # Set input file, if any
 if usefile and not notebook:
@@ -111,9 +93,6 @@ if usefile and not notebook:
     else:
         print("Response not interpretable. Aborting script.")
         sys.exit()
-
-
-# In[ ]:
 
 
 # ### Define (non-parsing) helper functions
@@ -253,9 +232,6 @@ def list_files(folder_path, extension):
     return matches
 
 
-# In[ ]:
-
-
 # ### Set parsing keywords
 
 keywords = ['values', 'academics', 'skills', 'purpose',
@@ -286,9 +262,6 @@ if Debug:
     print("\nList of keywords:\n", list(keys_dict))
 
 
-# In[ ]:
-
-
 # To use with filtering, create combined dictionary for ideologies:
 
 ideol_dict = set()
@@ -300,9 +273,6 @@ if Debug:
     list_dict = list(ideol_dict)
     list_dict.sort(key = lambda x: x.lower())
     print("First 10 elements of combined ideology dictionary are:\n", list_dict[:10])
-
-
-# In[ ]:
 
 
 # ### Compare parsing by newlines vs. by HTML tags
@@ -346,18 +316,11 @@ def parseurl_by_tags(urlstring):
     return(visible_text)
 
 
-# In[ ]:
-
-
 # Text chunking accuracy of parsing by tags is superior to parsing by newlines:
 # Compare each of these with the browser-displayed content of example_page:
 if Debug:
     print(parseurl_by_newlines(example_page),"\n\n",parseurl_by_tags(example_page))
     
-
-
-# In[ ]:
-
 
 # ### Define parsing helper functions
 
@@ -383,15 +346,9 @@ def parsefile_by_tags(HTML_file):
     return(visible_text)
 
 
-# In[ ]:
-
-
 if Debug:
     example_textlist = parsefile_by_tags(example_file)
     print("Output of parsefile_by_tags:\n\n", example_textlist, "\n\n")
-
-
-# In[ ]:
 
 
 def filter_dict_page(pagetext_list, keyslist):
@@ -412,16 +369,9 @@ def filter_dict_page(pagetext_list, keyslist):
     return filteredtext
 
 
-# In[ ]:
-
-
 if Debug:
-    print("Output of filter_keywords_page with keywords:\n\n", filter_dict_page(example_textlist, keys_dict), "\n\n")
-    
+    print("Output of filter_keywords_page with keywords:\n\n", filter_dict_page(example_textlist, keys_dict), "\n\n")    
     print("Output of filter_keywords_page with ideology words:\n\n", filter_dict_page(example_textlist, ideol_dict), "\n\n")
-
-
-# In[ ]:
 
 
 def parse_school(school_dict, school_name, school_address, school_URL, datalocation, parsed, numschools):
@@ -522,9 +472,6 @@ def parse_school(school_dict, school_name, school_address, school_URL, datalocat
         return
 
 
-# In[ ]:
-
-
 # ### Preparing data to be parsed
 
 itervar = 0 # initialize iterator that counts number of schools already parsed
@@ -554,9 +501,6 @@ URL_var,NAME_var,ADDR_var = get_vars(data_loc) # get varnames depending on data 
 # This will be translated into pandas data frame once (rather messy) website text is parsed into consistent variables
 
 
-# In[ ]:
-
-
 # ### Run parsing algorithm on schools (requires access to webcrawl output)
 
 test_dicts = dicts_list[:1] # Limit number of schools to analyze, in order to refine methods
@@ -570,25 +514,18 @@ else:
         parse_school(school, school[NAME_var], school[ADDR_var], school[URL_var], wget_dataloc, parsed, len(dicts_list))
 
 
-# In[ ]:
-
-
 # Check out results:
 if Debug:
-    print(test_dicts[0])
+    print(test_dicts[:1])
 else:
-    print(dicts_list[7]["webtext"])
+    print(dicts_list[:1])
     
-
-
-# In[ ]:
-
 
 # Save output:
 if Debug:
-    dictfile = "testing_dicts_" + str(datetime.today().strftime("%Y-%m-%d"))
+    dictfile = "testing_dicts_" + str(datetime.today())
     save_to_file(test_dicts, save_dir+dictfile, "JSON")
 else:
-    dictfile = "school_dicts_" + str(datetime.today().strftime("%Y-%m-%d"))
+    dictfile = "school_dicts_" + str(datetime.today())
     save_to_file(dicts_list, save_dir+dictfile, "JSON")
 

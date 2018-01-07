@@ -100,10 +100,15 @@ if usefile and not notebook:
 def get_vars(data):
     """Defines variable names based on the data source called."""
     
-    if data==full_schooldata:
+    if data==URL_schooldata:
         URL_variable = "TRUE_URL"
         NAME_variable = "SCH_NAME"
         ADDR_variable = "ADDRESS"
+        
+    elif data==full_schooldata:
+        URL_variable = "SCH_NAME" # Stand-in until URLs merged into full data file
+        NAME_variable = "SCH_NAME"
+        ADDR_variable = "ADDRESS14"
     
     elif data==micro_sample13:
         URL_variable = "URL"
@@ -397,6 +402,8 @@ def parse_school(school_dict, school_name, school_address, school_URL, datalocat
     school_dict["folder_name"] = folder_name
     
     school_folder = datalocation + folder_name + "/"
+    if school_URL==school_name:
+        school_URL = folder_name # Workaround for full_schooldata, which doesn't yet have URLs
 
     # Check if folder exists. If not, exit function
     if not (os.path.exists(school_folder) or os.path.exists(school_folder.lower()) or os.path.exists(school_folder.upper())):
@@ -408,7 +415,7 @@ def parse_school(school_dict, school_name, school_address, school_URL, datalocat
         parsed.append(school_URL)
         
         try:
-            file_count = 0 # initialize count of files parsed
+            file_count,school_dict["html_file_count"] = 0,0 # initialize count of files parsed
             
             # Parse file only if it contains HTML. This is easy: use the "*.html" wildcard pattern--
             # also wget gave the ".html" file extension to appropriate files when downloading (`--adjust-extension` option)
@@ -512,16 +519,10 @@ if Debug:
 else:
     for school in dicts_list:
         parse_school(school, school[NAME_var], school[ADDR_var], school[URL_var], wget_dataloc, parsed, len(dicts_list))
+        save_to_file(dicts_list, save_dir+"school_dicts_temp", "JSON") # Save output so we can pick up where left off, in case something breaks before able to save final output
 
 
-# Check out results:
-if Debug:
-    print(test_dicts[:1])
-else:
-    print(dicts_list[:1])
-    
-
-# Save output:
+# Save final output:
 if Debug:
     dictfile = "testing_dicts_" + str(datetime.today())
     save_to_file(test_dicts, save_dir+dictfile, "JSON")

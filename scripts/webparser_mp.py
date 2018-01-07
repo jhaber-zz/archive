@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8
 
-# # Parsing & Categorizing HTML from `wget` run!
+# # Parsing & Categorizing HTML from `wget` run with multiprocessing
 
 # ## Initializing
 
@@ -17,6 +17,7 @@ stemmer = PorterStemmer()
 from nltk import word_tokenize, sent_tokenize # widely used text tokenizer
 import urllib, urllib.request # for testing pages
 from unicodedata import normalize # for cleaning text by converting unicode character encodings into readable format
+from multiprocessing import Pool # for multiprocessing, to increase parsing speed
 
 # Import parser
 from bs4 import BeautifulSoup # BS reads and parses even poorly/unreliably coded HTML 
@@ -31,6 +32,7 @@ Debug = False # Set to "True" for extra progress reports while algorithms run
 notebook = False # Use different file paths depending on whether files are being accessed from shell (False) or within a Jupyter notebook (True)
 usefile = False # Set to "True" if loading from file a dicts_list to add to. Confirms with user input first!
 workstation = False # If working from office PC
+numcpus = int(6) # For multiprocessing
 
 if notebook:
     usefile = False # Prompting user for input file is only useful in command-line
@@ -106,7 +108,7 @@ def get_vars(data):
         ADDR_variable = "ADDRESS"
         
     elif data==full_schooldata:
-        URL_variable = "SCH_NAME" # Stand-in until URLs merged into full data file
+        URL_variable = "SCH_NAME" # Work-around until URLs merged into full data file
         NAME_variable = "SCH_NAME"
         ADDR_variable = "ADDRESS14"
     
@@ -158,6 +160,39 @@ def remove_spaces(file_path):
     return text
 
 
+def write_errors(error_file, error1, error2, error3, file_count):
+    """Writes to error_file three binary error flags derived from parse_school(): 
+    duplicate_flag, parse_error_flag, wget_fail_flag, and file_count."""
+    
+    with open(error_file, 'w') as file_handler:
+        file_handler.write("duplicate_flag " + str(error1) + "\n")
+        file_handler.write("parse_error_flag " + str(error2) + "\n")
+        file_handler.write("wget_fail_flag " + str(error3) + "\n")
+        file_handler.write("file_count " + str(file_count))
+        return
+
+    
+def write_list(file_path, textlist):
+    """Writes textlist to file_path. Useful for recording output of parse_school()."""
+    
+    with open(file_path, 'w') as file_handler:
+        for elem in textlist:
+            file_handler.write("{}\n".format(elem))
+        return
+    
+
+def load_list(file_path):
+    """Loads list into memory. Must be assigned to object."""
+    
+    textlist = []
+    with open(file_path) as file_handler:
+        line = file_handler.readline()
+        while line:
+            textlist.append(line)
+            line = file_handler.readline()
+    return textlist
+
+        
 def save_to_file(dicts_list, file, mode):
     """Saves dicts_list to file using JSON or pickle format (whichever was specified)."""
     
@@ -170,14 +205,14 @@ def save_to_file(dicts_list, file, mode):
                 file += ".json"
             with open(file, 'w') as outfile:
                 json.dump(dicts_list, outfile)
-                print("Dicts saved to " + file + " in JSON format!\n")
+                print("Dicts saved to " + file + "!")
 
         elif mode.lower()=="pickle":
             if not file.endswith(".pickle"):
                 file += ".pickle"
             with open(file, 'wb') as outfile:
                 pickle.dump(dicts_list, outfile)
-                print("Dicts saved to " + file + " in pickle format!\n")
+                print("Dicts saved to " + file + "!")
 
         else:
             print("ERROR! Save failed due to improper arguments. These are: file, object to be saved, and file format to save in.\n                  Specify either 'JSON' or 'pickle' as third argument ('mode' or file format) when calling this function.")
@@ -186,7 +221,7 @@ def save_to_file(dicts_list, file, mode):
         print(e)
     
 
-def load_file(file):
+def load_datafile(file):
     """Loads dicts_list (or whatever) from file, using either JSON or pickle format. 
     The created object should be assigned when called."""
     
@@ -280,53 +315,6 @@ if Debug:
     print("First 10 elements of combined ideology dictionary are:\n", list_dict[:10])
 
 
-# ### Compare parsing by newlines vs. by HTML tags
-
-def parseurl_by_newlines(urlstring):
-    """Uses BS to parse HTML from a given URL and looks for three newlines to separate chunks of text."""
-    
-    # Read HTML from a given url:
-    with urllib.request.urlopen(urlstring) as url:
-        s = url.read()
-    
-    # Parse raw text from website body:
-    soup = BeautifulSoup(s, bsparser)
-    texts = soup.findAll(text=True)
-    visible_texts = filter(tag_visible, texts)  
-    webtext = u" ".join(t.strip() for t in visible_texts)
-    
-    return re.split(r'\s{3,}', webtext)
-
-
-def parseurl_by_tags(urlstring):
-    """Cleans HTML by removing inline tags, ripping out non-visible tags, 
-    replacing paragraph tags with a random string, and finally using this to separate HTML into chunks.
-    Reads in HTML from the web using a given website address, urlstring."""
-    
-    with urllib.request.urlopen(urlstring) as url:
-        HTML_page = url.read()
-
-    random_string = "".join(map(chr, os.urandom(75))) # Create random string for tag delimiter
-    soup = BeautifulSoup(HTML_page, bsparser)
-    
-    [s.extract() for s in soup(['style', 'script', 'head', 'title', 'meta', '[document]'])] # Remove non-visible tags
-    for it in inline_tags:
-        [s.extract() for s in soup("</" + it + ">")] # Remove inline tags
-    
-    visible_text = soup.getText(random_string).replace("\n", "") # Replace "p" tags with random string, eliminate newlines
-    visible_text = list(elem.replace("\t","").replace(u'\xa0', u' ') for elem in visible_text.split(random_string)) # Split text into list using random string while eliminating tabs and unicode; OR: normalize("NFKC", elem) 
-    visible_text = list(filter(lambda vt: vt.split() != [], visible_text)) # Eliminate empty elements
-    # Consider joining list elements together with newline in between by prepending with: "\n".join
-    
-    return(visible_text)
-
-
-# Text chunking accuracy of parsing by tags is superior to parsing by newlines:
-# Compare each of these with the browser-displayed content of example_page:
-if Debug:
-    print(parseurl_by_newlines(example_page),"\n\n",parseurl_by_tags(example_page))
-    
-
 # ### Define parsing helper functions
 
 def parsefile_by_tags(HTML_file):
@@ -379,44 +367,46 @@ if Debug:
     print("Output of filter_keywords_page with ideology words:\n\n", filter_dict_page(example_textlist, ideol_dict), "\n\n")
 
 
-def parse_school(school_dict, school_name, school_address, school_URL, datalocation, parsed, numschools):
+def parse_school(schooltup):
     
-    """This core function parses webtext for a given school, using helper functions to run analyses and then saving multiple outputs to school_dict:
+    """This core function parses webtext for a given school. Input is tuple: (name, address, url).
+    It uses helper functions to run analyses and then returning multiple outputs:
     full (partially cleaned) webtext, by parsing webtext of each .html file (removing inline tags, etc.) within school's folder, via parsefile_by_tags();
     and all text associated with specific categories by filtering webtext to those with elements from a defined keyword list, via filter_keywords_page().
     
-    For the sake of parsimony and manageable script calls, OTHER similar functions/scripts collect these additional outputs: 
+    For the sake of parsimony and manageable script calls, OTHER similar functions/scripts return these additional outputs: 
     parsed webtext, having removed overlapping headers/footers common to multiple pages, via remove_overlaps();
     all text associated with specific categories by filtering webtext according to keywords for 
     mission, curriculum, philosophy, history, and about/general self-description, via categorize_page(); and
     contents of those individual pages best matching each of these categories, via find_best_categories."""
     
-    global itervar # This allows function to access global itervar counter
-    itervar+=1
+    global itervar,numschools,parsed,wget_dataloc,dicts_list # Access variables defined outside function (globally)
     
-    print("Parsing " + str(school_name) + ", which is school #" + str(itervar) + " of " + str(numschools) + "...")
+    itervar +=1 # Count school
+    datalocation = wget_dataloc # Define path to local data storage
+    school_name,school_address,school_URL = schooltup[0],schooltup[1],schooltup[2] # Assign variables from input tuple (safe because element order for a tuple is immutable)
     
-    school_dict["webtext"], school_dict["keywords_text"], school_dict["ideology_text"], school_dict["duplicate_flag"], school_dict["parse_error_flag"], school_dict["wget_fail_flag"] = [], [], [], 0, 0, 0
+    print("Parsing " + str(school_name) + ", which is ROUGHLY #" + str(6*itervar) + " / " + str(numschools) + " schools...")
+    
+    webtext,keywords_text,ideology_text = [],[],[] # Initialize local variables for text output
+    duplicate_flag,parse_error_flag,wget_fail_flag,file_count = 0,0,0,0 # Initialize error flags
     
     folder_name = re.sub(" ","_",(school_name+" "+school_address[-8:-6]))
-    school_dict["folder_name"] = folder_name
     
     school_folder = datalocation + folder_name + "/"
+    error_file = school_folder + "error_flags.txt" # Define file path for error text log
+    
     if school_URL==school_name:
         school_URL = folder_name # Workaround for full_schooldata, which doesn't yet have URLs
 
     # Check if folder exists. If not, exit function
     if not (os.path.exists(school_folder) or os.path.exists(school_folder.lower()) or os.path.exists(school_folder.upper())):
-        print("!! NO DIRECTORY FOUND matching " + str(school_folder) + ".\n  Aborting parsing function...\n\n")
-        school_dict['wget_fail_flag'] = 1
+        print("  !! NO DIRECTORY FOUND matching " + str(school_folder) + ". Aborting parsing function...")
         return
     
     if school_URL not in parsed: #check if this URL has already been parsed. If so, skip this school to avoid duplication bias
-        parsed.append(school_URL)
         
         try:
-            file_count,school_dict["html_file_count"] = 0,0 # initialize count of files parsed
-            
             # Parse file only if it contains HTML. This is easy: use the "*.html" wildcard pattern--
             # also wget gave the ".html" file extension to appropriate files when downloading (`--adjust-extension` option)
             # Less efficient ways to check if files contain HTML (e.g., for data not downloaded by wget):
@@ -426,29 +416,34 @@ def parse_school(school_dict, school_name, school_address, school_URL, datalocat
             file_list = list_files(school_folder, ".html")
             
             if file_list==(None or school_folder) or not file_list:
-                print("ERROR! File gathering function broken!\n  Aborting parser for " + str(school_name) + "...")
+                print("  ERROR! File gathering function broken! Aborting parser for " + str(school_name) + "...")
+                parse_error_flag = 1
+                write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
                 return
             
             elif file_list==("" or []):
-                print("  No .html files found.\n  Aborting parser for " + str(school_name) + "...")
+                print("  No .html files found. Aborting parser for " + str(school_name) + "...")
+                parse_error_flag = 1
+                write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
                 return
             
             for file in file_list:
                                     
                 file_count+=1 # add to count of parsed files
+                parsed_pagetext = []
                 if Debug:
                     print("    Parsing HTML in " + str(file) + "...")
                     
                 try:                    
                     parsed_pagetext = parsefile_by_tags(file) # Parse page text (filter too?)
                         
-                    school_dict["webtext"].extend(parsed_pagetext) # Add new parsed text to long list
+                    webtext.extend(parsed_pagetext) # Add new parsed text to long list
 
-                    #school_dict["keywords_text"].extend(filter_dict_page(parsed_pagetext, keys_dict)) # Filter parsed file using keywords list
-                    #school_dict["ideology_text"].extend(filter_dict_page(parsed_pagetext, ideol_dict)) # Filter parsed file using keywords list
+                    keywords_text.extend(filter_dict_page(parsed_pagetext, keys_dict)) # Filter parsed file using keywords list
+                    ideology_text.extend(filter_dict_page(parsed_pagetext, ideol_dict)) # Filter parsed file using keywords list
 
                     if Debug:
-                        print("      Successfully parsed and filtered file " + str(file) + "...")
+                        print("    Successfully parsed and filtered file " + str(file) + "...")
                         
                     file_count+=1
                         
@@ -456,38 +451,96 @@ def parse_school(school_dict, school_name, school_address, school_URL, datalocat
 
                 except Exception as e:
                     if Debug:
-                        print("      ERROR! Failed to parse file...")
+                        print("    ERROR! Failed to parse file...")
                         print("      ",e)
                         continue
                     else:
                         continue
             
-            print("  Parsed page text for " + str(file_count-1) + " .html file(s) belonging to " + str(school_name) + "...")
-            school_dict["html_file_count"] = int(file_count-1)
+            parsed.append(school_URL)
+            file_count = int(file_count-1)
+            print("  Parsed & categorized page text for " + str(file_count-1) + " .html file(s) from website of " + str(school_name) + "...")
             
-            print("  SUCCESS! Parsed and categorized website text for " + str(school_name) + "...\n")
+            write_list(school_folder + "webtext.txt", webtext)
+            write_list(school_folder + "keywords_text.txt", keywords_text)
+            write_list(school_folder + "ideology_text.txt", ideology_text)
+            write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
             return
 
         except Exception as e:
-            print("    ERROR! Failed to parse & categorize webtext of " + str(school_name))
+            print("  ERROR! Failed to parse & categorize webtext of " + str(school_name))
             print("    ",e)
-            school_dict["parse_error_flag"] = 1
+            parse_error_flag = 1
+            write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
+            return
     
     else:
-        print("DUPLICATE URL DETECTED. Skipping " + str(school_name) + "...\n\n")
-        school_dict["duplicate_flag"] = 1
+        print("  DUPLICATE URL DETECTED. Skipping " + str(school_name) + "...")
+        duplicate_flag = 1
+        write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
         return
 
+    
+def dictify_webtext(school_dict):
+    """Reads from file and saves to school_dict multiple parsing outputs:
+    webtext, keywords_text, ideology_text, file_count, etc."""
+    
+    # Allow function to access these variables already defined outside the function (globally)
+    global itervar,numschools,parsed,wget_dataloc,URL_var,NAME_var,ADDR_var
+    
+    datalocation = wget_dataloc # Define path to local data storage
+    school_name, school_address, school_URL = school[NAME_var], school[ADDR_var], school[URL_var] # Define varnames
+    itervar+=1 # Count this school
+    
+    print("Loading into dict parsing output for " + str(school_name) + ", which is school #" + str(itervar) + " of " + str(numschools) + "...")
+    
+    school_dict["webtext"], school_dict["keywords_text"], school_dict["ideology_text"], school_dict["duplicate_flag"], school_dict["parse_error_flag"], school_dict["wget_fail_flag"] = [], [], [], 0, 0, 0
+    
+    folder_name = re.sub(" ","_",(school_name+" "+school_address[-8:-6]))
+    school_dict["folder_name"] = folder_name
+    
+    school_folder = datalocation + folder_name + "/"
+    error_file = school_folder + "error_flags.txt" # Define file path for error text log
+    
+    if school_URL==school_name:
+        school_URL = folder_name # Workaround for full_schooldata, which doesn't yet have URLs
 
+    # Check if folder exists. If not, exit function
+    if not (os.path.exists(school_folder) or os.path.exists(school_folder.lower()) or os.path.exists(school_folder.upper())):
+        print("  !! NO DIRECTORY FOUND matching " + str(school_folder) + ". Aborting dictify function...")
+        school_dict['wget_fail_flag'] = 1
+        return
+    
+    try:
+        school_dict["webtext"] = load_list(school_folder + "webtext.txt")
+        school_dict["keywords_text"] = load_list(school_folder + "keywords_text.txt")
+        school_dict["ideology_text"] = load_list(school_folder + "ideology_text.txt")
+
+        error_text = load_list(error_file).splitlines()
+        school_dict["duplicate_flag"] = error_text[0].split()[-1]
+        school_dict["parse_error_flag"] = error_text[1].split()[-1]
+        school_dict["wget_fail_flag"] = error_text[2].split()[-1]
+        school_dict["html_file_count"] = error_text[3].split()[-1]
+        
+        print("  Loaded into dict the parsing output for " + school_dict["html_file_count"] + " .html file(s) from website of " + str(school_name) + "...")
+        save_to_file(dicts_list, save_dir+"school_parser_temp", "JSON") # Save output so we can pick up where left off, in case something breaks before able to save final output
+        return
+    
+    except Exception as e:
+        print("  ERROR! Failed to load into dict parsing out put for " + str(school_name))
+        print("  ",e)
+        return
+
+    
 # ### Preparing data to be parsed
 
-itervar = 0 # initialize iterator that counts number of schools already parsed
+itervar = 0 # initialize iterator that counts number of schools already parsed--useless when multiprocessing
 parsed = [] # initialize list of URLs that have already been parsed
 dicts_list = [] # initialize list of dictionaries to hold school data
 
 # If input_file was defined by user input in beginning of script, use that to load list of dictionaries. We'll add to it!
 if usefile and not dicts_list:
-    dicts_list = load_file(input_file)
+    dicts_list = load_datafile(input_file)
     data_loc = full_schooldata # If loading data, assume we're running on full charter population
 
 else:
@@ -503,9 +556,14 @@ else:
             dicts_list.append(row) # append each row to the list
         
 URL_var,NAME_var,ADDR_var = get_vars(data_loc) # get varnames depending on data source
+numschools = len(dicts_list) # Count number of schools in list of dictionaries
         
-# Note on data structures: each row, dicts_list[i] is a dictionary with keys as column name and value as info.
-# This will be translated into pandas data frame once (rather messy) website text is parsed into consistent variables
+names,addresses,urls = [],[],[]
+for school in dicts_list:
+    names.append(school[NAME_var])
+    addresses.append(school[ADDR_var])
+    urls.append(school[URL_var])
+tuplist_zip = zip(names, addresses, urls) # Create list of tuples to pass to parser function
 
 
 # ### Run parsing algorithm on schools (requires access to webcrawl output)
@@ -514,19 +572,23 @@ test_dicts = dicts_list[:1] # Limit number of schools to analyze, in order to re
 
 if Debug:
     for school in test_dicts:
-        parse_school(school, school[NAME_var], school[ADDR_var], school[URL_var], wget_dataloc, parsed, len(dicts_list))
-        
-else:
-    for school in dicts_list:
-        parse_school(school, school[NAME_var], school[ADDR_var], school[URL_var], wget_dataloc, parsed, len(dicts_list))
-        save_to_file(dicts_list, save_dir+"school_dicts_temp", "JSON") # Save output so we can pick up where left off, in case something breaks before able to save final output
-
-
-# Save final output:
-if Debug:
+        parse_school(school)
     dictfile = "testing_dicts_" + str(datetime.today())
     save_to_file(test_dicts, save_dir+dictfile, "JSON")
-else:
-    dictfile = "school_dicts_" + str(datetime.today())
-    save_to_file(dicts_list, save_dir+dictfile, "JSON")
+    sys.exit()
+                
+# Run parse_school() with multiprocessing.Pool(numcpus), 
+# which parses downloaded webtext and saves the results to local storage:
+if __name__ == '__main__':
+    with Pool(numcpus) as p:
+        p.map(parse_school, list(tuplist_zip), chunksize=numcpus)
 
+# Now use dictify_webtext to load the parsing outut from local storage into the list of dictionaries:
+for school in dicts_list:
+    dictify_webtext(school)
+
+    
+# Save final output:
+print("\n\nSCHOOL PARSING COMPLETE!!!\n\n")
+dictfile = "school_dicts_" + str(datetime.today())
+save_to_file(dicts_list, save_dir+dictfile, "JSON")

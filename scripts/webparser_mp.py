@@ -25,6 +25,7 @@ from nltk import word_tokenize, sent_tokenize # widely used text tokenizer
 import urllib, urllib.request # for testing pages
 from unicodedata import normalize # for cleaning text by converting unicode character encodings into readable format
 from multiprocessing import Pool # for multiprocessing, to increase parsing speed
+import pandas as pd # modifies data more efficiently than with a list of dicts
 
 # Import parser
 from bs4 import BeautifulSoup # BS reads and parses even poorly/unreliably coded HTML 
@@ -202,8 +203,9 @@ def load_list(file_path):
     return textlist
 
         
-def save_to_file(dicts_list, file, mode):
-    """Saves dicts_list to file using JSON or pickle format (whichever was specified)."""
+def save_to_file(data, file, mode):
+    """Saves data to file using JSON or pickle format (whichever was specified).
+    Works with Pandas DataFrames or other objects, e.g. a list of dictionaries."""
     
     file = str(file)
     mode = str(mode)
@@ -213,20 +215,27 @@ def save_to_file(dicts_list, file, mode):
             if not file.endswith(".json"):
                 file += ".json"
             with open(file, 'w') as outfile:
-                json.dump(dicts_list, outfile)
-                print("Dicts saved to " + file + "!")
+                if type(data) = "pandas.core.frame.DataFrame":
+                    data.to_json(file)
+                else:
+                    json.dump(data, outfile)
+                print("Data saved to " + file + "!")
 
         elif mode.lower()=="pickle":
             if not file.endswith(".pickle"):
                 file += ".pickle"
             with open(file, 'wb') as outfile:
-                pickle.dump(dicts_list, outfile)
-                print("Dicts saved to " + file + "!")
+                if type(data) = "pandas.core.frame.DataFrame":
+                    data.to_pickle(file)
+                else:
+                    pickle.dump(data, outfile)
+                print("Data saved to " + file + "!")
 
         else:
-            print("ERROR! Save failed due to improper arguments. These are: file, object to be saved, and file format to save in.\n                  Specify either 'JSON' or 'pickle' as third argument ('mode' or file format) when calling this function.")
+            print("ERROR! Improper arguments. Please include: data object to save (Pandas DataFrames OK), file path, and file format ('JSON' or 'pickle').")
     
     except Exception as e:
+        print("Failed to save to " + str(file) + " into memory using " + str(mode) + " format. Please check arguments (data, file, mode) and try again.")
         print(e)
     
 
@@ -581,14 +590,14 @@ def parse_school(schooltup):
 
     
 def dictify_webtext(school_dict):
-    """Reads from file and saves to school_dict multiple parsing outputs:
+    """Reads parsing output from text files and saves to school_dict multiple parsing outputs:
     webtext, keywords_text, ideology_text, file_count, etc."""
     
     # Allow function to access these variables already defined outside the function (globally)
     global itervar,numschools,parsed,wget_dataloc,URL_var,NAME_var,ADDR_var
     
     datalocation = wget_dataloc # Define path to local data storage
-    school_name, school_address, school_URL = school[NAME_var], school[ADDR_var], school[URL_var] # Define varnames
+    school_name, school_address, school_URL = school_dict[NAME_var], school_dict[ADDR_var], school_dict[URL_var] # Define varnames
     itervar+=1 # Count this school
     
     print("Loading into dict parsing output for " + str(school_name) + ", which is school #" + str(itervar) + " of " + str(numschools) + "...")
@@ -647,6 +656,72 @@ def dictify_webtext(school_dict):
         return
 
     
+def pandify_webtext(df):
+    """Reads parsing output from text files and saves to DataFrame df multiple parsing outputs:
+    webtext, keywords_text, ideology_text, file_count, etc."""
+    
+    # Allow function to access these variables already defined outside the function (globally)
+    global itervar,numschools,parsed,wget_dataloc,URL_var,NAME_var,ADDR_var
+    
+    datalocation = wget_dataloc # Define path to local data storage
+    school_name, school_address, school_URL = df[NAME_var], df[ADDR_var] df[URL_var] # Define varnames
+    itervar+=1 # Count this school
+    
+    print("Loading into dict parsing output for " + str(school_name) + ", which is school #" + str(itervar) + " of " + str(numschools) + "...")
+    
+    df["webtext"], df["keywords_text"], df["ideology_text"] = [[] for _ in range(3)]
+    df["duplicate_flag"], df["parse_error_flag"], df["wget_fail_flag"] = [0 for _ in range(3)]
+    df['ess_strength'],df['prog_strength'] = [0.0 for _ in range(2)]
+    
+    folder_name = re.sub(" ","_",(school_name+" "+school_address[-8:-6]))
+    df["folder_name"] = folder_name
+    
+    school_folder = datalocation + folder_name + "/"
+    error_file = school_folder + "error_flags.txt" # Define file path for error text log
+    
+    if school_URL==school_name:
+        school_URL = folder_name # Workaround for full_schooldata, which doesn't yet have URLs
+
+    # Check if folder exists. If not, exit function
+    if not (os.path.exists(school_folder) or os.path.exists(school_folder.lower()) or os.path.exists(school_folder.upper())):
+        print("  !! NO DIRECTORY FOUND matching " + str(school_folder) + ". Aborting dictify function...")
+        df['wget_fail_flag'] = 1
+        return
+    
+    try:
+        # Load school parse output from disk into dictionary 
+        df["webtext"] = load_list(school_folder + "webtext.txt")
+        df["keywords_text"] = load_list(school_folder + "keywords_text.txt")
+        df["ideology_text"] = load_list(school_folder + "ideology_text.txt")                        
+        
+        """ # Comment out until dict_count is run
+        df["ess_count"] = load_list(school_folder + "ess_count.txt")
+        df["prog_count"] = load_list(school_folder + "prog_count.txt")
+        df["rit_count"] = load_list(school_folder + "rit_count.txt")
+        df['ess_strength'] = float(df['ess_count'])/float(df['rit_count'])
+        df['prog_strength'] = float(df['prog_count'])/float(df['rit_count'])
+        """
+
+        # load error_file as a list with four pieces, the last element of each of which is the flag value itself:
+        error_text = load_list(error_file) 
+        df["duplicate_flag"] = error_text[0].split()[-1] # last element of first piece of error_text
+        df["parse_error_flag"] = error_text[1].split()[-1]
+        df["wget_fail_flag"] = error_text[2].split()[-1]
+        df["html_file_count"] = int(error_text[3].split()[-1])
+        
+        if int(school_dict["html_file_count"])==0:
+            school_dict["wget_fail_flag"] = 1
+        
+        print("  LOADED " + df["html_file_count"].sum() + " .html files from " + str(schoolnum) + " school websites...")
+        save_to_file(df, save_dir+"df_parser_temp", "JSON") # Save output so we can pick up where left off, in case something breaks before able to save final output
+        return
+    
+    except Exception as e:
+        print("  ERROR! Failed to load parsing output into DataFrame.")
+        print("  ",e)
+        return
+    
+    
 # ### Preparing data to be parsed
 
 itervar = 0 # initialize iterator that counts number of schools already parsed--useless when multiprocessing
@@ -698,7 +773,7 @@ if Debug:
 #    with Pool(numcpus) as p:
 #        p.map(parse_school, list(tuplist_zip), chunksize=numcpus)
 
-# Now use dictify_webtext to load the parsing outut from local storage into the list of dictionaries:
+"""# Now use dictify_webtext to load the parsing outut from local storage into the list of dictionaries:
 for school in dicts_list:
     try:
         dictify_webtext(school)
@@ -706,9 +781,17 @@ for school in dicts_list:
         print("  ERROR! Failed to load into dict parsing output for " + school[NAME_var])
         print("  ",e)
         school_dict["parse_error_flag"] = 1
-        continue
+        continue"""
+
+# Now use pandify_webtext to load the parsing outut from local storage into the list of dictionaries:
+schooldf = pd.DataFrame.from_dict(dicts_list)
+try:
+    pandify_webtext(schooldf)
+except Exception as e:
+    print("  ERROR! Failed to load parsing output into DataFrame parsing output.")
+    print("  ",e)
     
 # Save final output:
 print("\n\nSCHOOL PARSING COMPLETE!!!\n\n")
 dictfile = "school_dicts_" + str(datetime.today().strftime("%Y-%m-%d"))
-save_to_file(dicts_list, save_dir+dictfile, "JSON")
+save_to_file(df, save_dir+dictfile, "JSON")

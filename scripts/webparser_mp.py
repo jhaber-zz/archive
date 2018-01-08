@@ -3,6 +3,13 @@
 
 # # Parsing & Categorizing HTML from `wget` run with multiprocessing
 
+
+"""This script parses .html files previously downloaded into local folders for those schools (or organizations, generally) listed in a .csv directory file. It uses the BeautifulSoup and multiprocessing modules to efficiently clean, filter, and merge webtext into various lists; it also uses dictionary methods to count the number of times any word from the provided dictionaries (essentialist and progressivist school ideologies, in this case) occurs in any page for a given school. The script then stores these lists to each school's folder as text files; incorporates them into a large list of dictionaries; and then finally saves this as an analysis-ready JSON-formatted file.
+
+Author: Jaren Haber, PhD Candidate in UC Berkeley Sociology. 
+Date: January 7th, 2018."""
+
+
 # ## Initializing
 
 # import necessary libraries
@@ -55,21 +62,23 @@ example_page = "https://westlakecharter.com/about/"
 example_schoolname = "TWENTY-FIRST_CENTURY_NM"
 
 if workstation and notebook:
-    micro_sample13 = dir_prefix + "data\\micro-sample13_coded.csv" #data location for random micro-sample of 300 US charter schools
-    URL_schooldata = dir_prefix + "data\\charter_URLs_2014.csv" #data location for 2014 population of US charter schools
-    full_schooldata = dir_prefix + "data\\charter_merged_2014.csv"
+    micro_sample13 = dir_prefix + "data\\micro-sample13_coded.csv" # Random micro-sample of 300 US charter schools
+    URL_schooldata = dir_prefix + "data\\charter_URLs_2014.csv" # 2014 population of 6,973 US charter schools
+    full_schooldata = dir_prefix + "data\\charter_merged_2014.csv" # Above merged with PVI, EdFacts, year opened/closed
+    temp_data = dir_prefix + "data\\school_parser_temp.json" # Full_schooldata dict with output for some schools
     example_file = dir_prefix + "data\\example_file.html" #example_folder + "21stcenturypa.com/wp/default?page_id=27.tmp.html"
     dicts_dir = dir_prefix + "dicts\\" # Directory in which to find & save dictionary files
     save_dir = dir_prefix + "data\\" # Directory in which to save data files
 
 else:
     wget_dataloc = dir_prefix + "wget/parll_wget/" #data location for schools downloaded with wget in parallel (requires server access)
-    example_folder = wget_dataloc + "TWENTY-FIRST_CENTURY_NM/"
+    example_folder = wget_dataloc + "TWENTY-FIRST_CENTURY_NM/" # Random charter school folder
     example_file = dir_prefix + "wget/example_file.html" #example_folder + "21stcenturypa.com/wp/default?page_id=27.tmp.html"
 
     micro_sample13 = dir_prefix + "Charter-school-identities/data/micro-sample13_coded.csv" #data location for random micro-sample of 300 US charter schools
     URL_schooldata = dir_prefix + "Charter-school-identities/data/charter_URLs_2014.csv" #data location for 2014 population of US charter schools
-    full_schooldata = dir_prefix + "Charter-school-identities/data/charter_merged_2014.csv"
+    full_schooldata = dir_prefix + "Charter-school-identities/data/charter_merged_2014.csv" # Above merged with PVI, EdFacts, year opened/closed
+    temp_data = dir_prefix + "Charter-school-identities/data/school_parser_temp.json" # Full_schooldata dict with output for some schools
     dicts_dir = dir_prefix + "Charter-school-identities/dicts/" # Directory in which to find & save dictionary files
     save_dir = dir_prefix + "Charter-school-identities/data/" # Directory in which to save data files
     
@@ -121,8 +130,8 @@ def get_vars(data):
         try:
             print("Error processing variables from data file " + str(data) + "!")
         except Exception as e:
-            print(e)
             print("ERROR: No data source established!\n")
+            print(e)
     
     return(URL_variable,NAME_variable,ADDR_variable)
 
@@ -165,10 +174,10 @@ def write_errors(error_file, error1, error2, error3, file_count):
     duplicate_flag, parse_error_flag, wget_fail_flag, and file_count."""
     
     with open(error_file, 'w') as file_handler:
-        file_handler.write("duplicate_flag " + str(error1) + "\n")
-        file_handler.write("parse_error_flag " + str(error2) + "\n")
-        file_handler.write("wget_fail_flag " + str(error3) + "\n")
-        file_handler.write("file_count " + str(file_count))
+        file_handler.write("duplicate_flag ", (int(error1)), "\n")
+        file_handler.write("parse_error_flag ", (int(error2)), "\n")
+        file_handler.write("wget_fail_flag ", (int(error3)), "\n")
+        file_handler.write("file_count ", (int(file_count)))
         return
 
     
@@ -296,23 +305,94 @@ curriculum_keywords = set(stemmer.stem(word) for word in curriculum_keywords)
 philosophy_keywords = set(stemmer.stem(word) for word in philosophy_keywords)
 history_keywords = set(stemmer.stem(word) for word in history_keywords)
 about_keywords =  set(stemmer.stem(word) for word in about_keywords)
-keys_dict = set(stemmer.stem(key) for key in keywords)
+all_keywords = set(stemmer.stem(key) for key in keywords)
     
 if Debug:
-    print("\nList of keywords:\n", list(keys_dict))
+    print("\nList of keywords:\n", list(all_keywords))
 
 
-# To use with filtering, create combined dictionary for ideologies:
+# ### Create dictionaries for each ideology and one for combined ideologies
 
-ideol_dict = set()
-ideol_dict = load_dict(ideol_dict, dicts_dir + "ess_dict.txt")
-ideol_dict = load_dict(ideol_dict, dicts_dir + "prog_dict.txt")
+ess_dict, prog_dict, rit_dict, all_ideol = set(), set(), set(), set()
+all_ideol = load_dict(all_ideol, dicts_dir + "ess_dict.txt")
+all_ideol = load_dict(all_ideol, dicts_dir + "prog_dict.txt")
+ess_dict = load_dict(ess_dict, dicts_dir + "ess_dict.txt")
+prog_dict = load_dict(prog_dict, dicts_dir + "prog_dict.txt")
+rit_dict = load_dict(rit_dict, dicts_dir + "rit_dict.txt")
 
 if Debug:
-    print(len(ideol_dict), "entries loaded into the combined ideology dictionary.")
-    list_dict = list(ideol_dict)
+    print(len(all_ideol), "entries loaded into the combined ideology dictionary.")
+    list_dict = list(all_ideol)
     list_dict.sort(key = lambda x: x.lower())
     print("First 10 elements of combined ideology dictionary are:\n", list_dict[:10])
+    
+
+# ### Define list of tuples: keywords lists and their titles, for dictionary analyses
+
+titles_list = ("mission","curriculum","philosophy","history","about","ideology","keywords")
+keysnames_tupzip = zip((mission_keywords,curriculum_keywords,philosophy_keywords,history_keywords,about_keywords,\
+                        all_ideol,all_keywords), titles_list)
+
+dictsnames_list = ("ess", "prog", "rit", "all_ideol")
+dictsnames_tupzip = zip((ess_dict,prog_dict,rit_dict,all_ideol), dictsnames_list)
+
+if Debug:
+    print(list(keysnames_tupzip))
+    print()
+    print(list(dictsnames_tupzip))
+
+    
+# ### Define dictionary matching helper functions
+
+def dict_count(text_list, custom_dict):
+    """Performs dictionary analysis, returning number of dictionary hits found.
+    Removes punctuation and stems the phrase being analyzed. 
+    Compatible with multiple-word dictionary elements."""
+    
+    counts = 0 # number of matches between text_list and custom_dict
+    dictless_list = [] # Updated text_list with dictionary hits removed
+    max_entry_length = max([len(entry.split()) for entry in custom_dict]) # Get length (in words) of longest entry in combined dictionary
+    
+    for chunk in text_list: # chunk may be several sentences or possibly paragraphs long
+        chunk = re.sub(r'[^\w\s]', '', chunk) # Remove punctuation with regex that keeps only letters and spaces
+
+        # Do dictionary analysis for word chunks of lengths max_entry_length down to 1, removing matches each time.
+        # This means longer dict entries will get removed first, useful in case they contain smaller entries.
+        for length in range(max_entry_length, 0, -1):
+            dictless_chunk,len_counts = dict_match_len(chunk,custom_dict,length)
+            dictless_list.append(dictless_chunk)
+            counts += len_counts
+    
+    return dictless_list,int(counts)
+
+def dict_match_len(phrase, custom_dict, length):
+    """Helper function to dict_match. 
+    Returns # dictionary hits and updated copy of phrase with dictionary hits removed. 
+    Stems phrases before checking for matches."""
+    
+    hits_indices, counts = [], 0
+    splitted_phrase = phrase.split()
+    if len(splitted_phrase) < length:
+        return phrase, 0 # If text chunk is shorter than length of dict entries being matched, don't continue.
+    
+    for i in range(len(splitted_phrase) - length + 1):
+        to_stem = ""
+        for j in range(length):
+            to_stem += splitted_phrase[i+j] + " " # Builds chunk of 'length' words
+        stemmed_word = stemmer.stem(to_stem[:-1]) # stem chunk
+        if stemmed_word in custom_dict:
+            hits_indices.append(i) # Store the index of the word that has a dictionary hit
+            counts += 1
+            if Debug:
+                print(stemmed_word)
+    # Iterate through list of matching word indices and remove the matches
+    for i in range(len(hits_indices)-1, -1, -1):
+        splitted_phrase = splitted_phrase[:hits_indices[i]] + \
+        splitted_phrase[hits_indices[i] + length:]
+    modified_phrase = ""
+    for sp in splitted_phrase: # Rebuild the modified phrase, with matches removed
+        modified_phrase += sp + " "
+    return modified_phrase[:-1], counts
 
 
 # ### Define parsing helper functions
@@ -363,8 +443,8 @@ def filter_dict_page(pagetext_list, keyslist):
 
 
 if Debug:
-    print("Output of filter_keywords_page with keywords:\n\n", filter_dict_page(example_textlist, keys_dict), "\n\n")    
-    print("Output of filter_keywords_page with ideology words:\n\n", filter_dict_page(example_textlist, ideol_dict), "\n\n")
+    print("Output of filter_keywords_page with keywords:\n\n", filter_dict_page(example_textlist, all_keywords), "\n\n")    
+    print("Output of filter_keywords_page with ideology words:\n\n", filter_dict_page(example_textlist, all_ideol), "\n\n")
 
 
 def parse_school(schooltup):
@@ -372,7 +452,8 @@ def parse_school(schooltup):
     """This core function parses webtext for a given school. Input is tuple: (name, address, url).
     It uses helper functions to run analyses and then returning multiple outputs:
     full (partially cleaned) webtext, by parsing webtext of each .html file (removing inline tags, etc.) within school's folder, via parsefile_by_tags();
-    and all text associated with specific categories by filtering webtext to those with elements from a defined keyword list, via filter_keywords_page().
+    all text associated with specific categories by filtering webtext to those with elements from a defined keyword list, via filter_keywords_page();
+    AND COUNTS FOR DICT MATCHES
     
     For the sake of parsimony and manageable script calls, OTHER similar functions/scripts return these additional outputs: 
     parsed webtext, having removed overlapping headers/footers common to multiple pages, via remove_overlaps();
@@ -437,10 +518,10 @@ def parse_school(schooltup):
                 try:                    
                     parsed_pagetext = parsefile_by_tags(file) # Parse page text (filter too?)
                         
-                    webtext.extend(parsed_pagetext) # Add new parsed text to long list
-
-                    keywords_text.extend(filter_dict_page(parsed_pagetext, keys_dict)) # Filter parsed file using keywords list
-                    ideology_text.extend(filter_dict_page(parsed_pagetext, ideol_dict)) # Filter parsed file using keywords list
+                    if len(parsed_pagetext) != 0: # Don't waste time adding empty pages
+                        webtext.extend(parsed_pagetext) # Add new parsed text to long list
+                        keywords_text.extend(filter_dict_page(parsed_pagetext, all_keywords)) # Filter using keywords
+                        ideology_text.extend(filter_dict_page(parsed_pagetext, all_ideol)) # Filter using ideology words
 
                     if Debug:
                         print("    Successfully parsed and filtered file " + str(file) + "...")
@@ -459,7 +540,7 @@ def parse_school(schooltup):
             
             parsed.append(school_URL)
             file_count = int(file_count-1)
-            print("  Parsed & categorized page text for " + str(file_count-1) + " .html file(s) from website of " + str(school_name) + "...")
+            print("  PARSED " + str(file_count-1) + " .html file(s) from website of " + str(school_name) + "...")
             
             write_list(school_folder + "webtext.txt", webtext)
             write_list(school_folder + "keywords_text.txt", keywords_text)
@@ -471,6 +552,24 @@ def parse_school(schooltup):
             print("  ERROR! Failed to parse & categorize webtext of " + str(school_name))
             print("    ",e)
             parse_error_flag = 1
+            write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
+    
+    
+        try:
+            for adict,name in list(dictsnames_tupzip): # Names are: ("ess", "prog", "rit", "all_ideol")
+                dict_name = name + "_count"
+                dict_name = dict_count(school_folder,adict)[1]
+
+            print("  Counted " + str(int(ess_count)+int(prog_count)+int(rit_count)) + " total dictionary matches for " + str(school_name) + "...")
+            
+            write_list(school_folder + "ess_count.txt", ess_count)
+            write_list(school_folder + "prog_count.txt", prog_count)
+            write_list(school_folder + "rit_count.txt", rit_count)
+        
+        except:
+            print("    ERROR! Failed to count number of dict matches while parsing webtext of " + str(school_name))
+            print("    ",e)
+            school_dict["parse_error_flag"] = 1
             write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
             return
     
@@ -494,7 +593,9 @@ def dictify_webtext(school_dict):
     
     print("Loading into dict parsing output for " + str(school_name) + ", which is school #" + str(itervar) + " of " + str(numschools) + "...")
     
-    school_dict["webtext"], school_dict["keywords_text"], school_dict["ideology_text"], school_dict["duplicate_flag"], school_dict["parse_error_flag"], school_dict["wget_fail_flag"] = [], [], [], 0, 0, 0
+    school_dict["webtext"], school_dict["keywords_text"], school_dict["ideology_text"] = [[] for _ in range(3)]
+    school_dict["duplicate_flag"], school_dict["parse_error_flag"], school_dict["wget_fail_flag"] = [0 for _ in range(3)]
+    school_dict['ess_strength'],school_dict['prog_strength'] = [0.0 for _ in range(2)]
     
     folder_name = re.sub(" ","_",(school_name+" "+school_address[-8:-6]))
     school_dict["folder_name"] = folder_name
@@ -512,23 +613,37 @@ def dictify_webtext(school_dict):
         return
     
     try:
+        # Load school parse output from disk into dictionary 
         school_dict["webtext"] = load_list(school_folder + "webtext.txt")
         school_dict["keywords_text"] = load_list(school_folder + "keywords_text.txt")
-        school_dict["ideology_text"] = load_list(school_folder + "ideology_text.txt")
+        school_dict["ideology_text"] = load_list(school_folder + "ideology_text.txt")                        
+        
+        """ # Comment out until dict_count is run
+        school_dict["ess_count"] = load_list(school_folder + "ess_count.txt")
+        school_dict["prog_count"] = load_list(school_folder + "prog_count.txt")
+        school_dict["rit_count"] = load_list(school_folder + "rit_count.txt")
+        school_dict['ess_strength'] = float(school_dict['ess_count'])/float(school_dict['rit_count'])
+        school_dict['prog_strength'] = float(school_dict['prog_count'])/float(school_dict['rit_count'])
+        """
 
-        error_text = load_list(error_file).splitlines()
-        school_dict["duplicate_flag"] = error_text[0].split()[-1]
+        # load error_file as a list with four pieces, the last element of each of which is the flag value itself:
+        error_text = load_list(error_file) 
+        school_dict["duplicate_flag"] = error_text[0].split()[-1] # last element of first piece of error_text
         school_dict["parse_error_flag"] = error_text[1].split()[-1]
         school_dict["wget_fail_flag"] = error_text[2].split()[-1]
         school_dict["html_file_count"] = error_text[3].split()[-1]
         
-        print("  Loaded into dict the parsing output for " + school_dict["html_file_count"] + " .html file(s) from website of " + str(school_name) + "...")
-        save_to_file(dicts_list, save_dir+"school_parser_temp", "JSON") # Save output so we can pick up where left off, in case something breaks before able to save final output
+        if int(school_dict["html_file_count"])==0:
+            school_dict["wget_fail_flag"] = 1
+        
+        print("  LOADED " + school_dict["html_file_count"] + " .html file(s) from website of " + str(school_name) + "...")
+        #save_to_file(dicts_list, save_dir+"school_parser_temp", "JSON") # Save output so we can pick up where left off, in case something breaks before able to save final output
         return
     
     except Exception as e:
-        print("  ERROR! Failed to load into dict parsing out put for " + str(school_name))
+        print("  ERROR! Failed to load into dict parsing output for " + str(school_name))
         print("  ",e)
+        school_dict["parse_error_flag"] = 1
         return
 
     
@@ -568,27 +683,32 @@ tuplist_zip = zip(names, addresses, urls) # Create list of tuples to pass to par
 
 # ### Run parsing algorithm on schools (requires access to webcrawl output)
 
-test_dicts = dicts_list[:1] # Limit number of schools to analyze, in order to refine methods
-
 if Debug:
+    test_dicts = dicts_list[:1] # Limit number of schools to analyze, in order to refine methods
     for school in test_dicts:
         parse_school(school)
     dictfile = "testing_dicts_" + str(datetime.today())
     save_to_file(test_dicts, save_dir+dictfile, "JSON")
     sys.exit()
                 
+# Comment out until dictify_webtext() doesn't get OOMKilled
 # Run parse_school() with multiprocessing.Pool(numcpus), 
 # which parses downloaded webtext and saves the results to local storage:
-if __name__ == '__main__':
-    with Pool(numcpus) as p:
-        p.map(parse_school, list(tuplist_zip), chunksize=numcpus)
+#if __name__ == '__main__':
+#    with Pool(numcpus) as p:
+#        p.map(parse_school, list(tuplist_zip), chunksize=numcpus)
 
 # Now use dictify_webtext to load the parsing outut from local storage into the list of dictionaries:
 for school in dicts_list:
-    dictify_webtext(school)
-
+    try:
+        dictify_webtext(school)
+    except Exception as e:
+        print("  ERROR! Failed to load into dict parsing output for " + school[NAME_var])
+        print("  ",e)
+        school_dict["parse_error_flag"] = 1
+        continue
     
 # Save final output:
 print("\n\nSCHOOL PARSING COMPLETE!!!\n\n")
-dictfile = "school_dicts_" + str(datetime.today())
+dictfile = "school_dicts_" + str(datetime.today().strftime("%Y-%m-%d"))
 save_to_file(dicts_list, save_dir+dictfile, "JSON")

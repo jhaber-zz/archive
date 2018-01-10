@@ -4,7 +4,7 @@
 # # Parsing & Categorizing HTML from `wget` run with multiprocessing
 
 
-"""This script parses .html files previously downloaded into local folders for those schools (or organizations, generally) listed in a .csv directory file. It uses the BeautifulSoup and multiprocessing modules to efficiently clean, filter, and merge webtext into various lists; it also uses dictionary methods to count the number of times any word from the provided dictionaries (essentialist and progressivist school ideologies, in this case) occurs in any page for a given school. The script then stores these lists to each school's folder as text files; incorporates them into a large list of dictionaries; and then finally saves this as an analysis-ready JSON-formatted file.
+"""This script parses .html files previously downloaded into local folders for those schools (or organizations, generally) listed in a .csv directory file. It uses the BeautifulSoup, multiprocessing, and pandas modules to efficiently clean, filter, and merge webtext into various lists; it also uses dictionary methods to count the number of times any word from the provided dictionaries (essentialist and progressivist school ideologies, in this case) occurs in any page for a given school. The script then stores these lists to each school's folder as text files; incorporates them into a large pandas DataFrame; and then finally saves this as an analysis-ready pickle-formatted file.
 
 Author: Jaren Haber, PhD Candidate in UC Berkeley Sociology. 
 Date: January 7th, 2018."""
@@ -26,6 +26,7 @@ import urllib, urllib.request # for testing pages
 from unicodedata import normalize # for cleaning text by converting unicode character encodings into readable format
 from multiprocessing import Pool # for multiprocessing, to increase parsing speed
 import pandas as pd # modifies data more efficiently than with a list of dicts
+from tqdm import tqdm # For progress information during involved Pandas operations
 
 # Import parser
 from bs4 import BeautifulSoup # BS reads and parses even poorly/unreliably coded HTML 
@@ -203,7 +204,7 @@ def load_list(file_path):
     return textlist
 
         
-def save_to_file(data, file, mode):
+def save_datafile(data, file, mode):
     """Saves data to file using JSON or pickle format (whichever was specified).
     Works with Pandas DataFrames or other objects, e.g. a list of dictionaries."""
     
@@ -215,7 +216,7 @@ def save_to_file(data, file, mode):
             if not file.endswith(".json"):
                 file += ".json"
             with open(file, 'w') as outfile:
-                if type(data) = "pandas.core.frame.DataFrame":
+                if type(data)=="pandas.core.frame.DataFrame":
                     data.to_json(file)
                 else:
                     json.dump(data, outfile)
@@ -225,7 +226,7 @@ def save_to_file(data, file, mode):
             if not file.endswith(".pickle"):
                 file += ".pickle"
             with open(file, 'wb') as outfile:
-                if type(data) = "pandas.core.frame.DataFrame":
+                if type(data)=="pandas.core.frame.DataFrame":
                     data.to_pickle(file)
                 else:
                     pickle.dump(data, outfile)
@@ -253,7 +254,7 @@ def load_datafile(file):
         with open(file,'rb') as infile:
             var = pickle.load(infile)
         
-    print(file + " successfully loaded!\n")
+    print("\n" + file + " successfully loaded!")
     return var
 
 
@@ -288,6 +289,32 @@ def list_files(folder_path, extension):
         else:
                 matches.append(os.path.join(dirpath,filename)) # If no extension, just take all files
     return matches
+
+
+def convert_df(df):
+    """Makes a Pandas DataFrame more memory-efficient through intelligent use of Pandas data types: 
+    specifically, by storing columns with repetitive Python strings not with the object dtype for unique values 
+    (entirely stored in memory) but as categoricals, which are represented by repeated integer values. This is a 
+    net gain in memory when the reduced memory size of the category type outweighs the added memory cost of storing 
+    one more thing. As such, this function checks the degree of redundancy for a given column before converting it.
+    
+    # TO DO: Filter out non-object columns, make that more efficient by downcasting numeric types using pd.to_numeric(), 
+    merge  that with the converted object columns (see https://www.dataquest.io/blog/pandas-big-data/). 
+    For now, since the current DF is ENTIRELY composed of object types, code is left as is. 
+    But note that the current code will eliminate any non-object type columns."""
+    
+    converted_df = pd.DataFrame() # Initialize DF for memory-efficient storage of strings (object types)
+    df_obj = df.select_dtypes(include=['object']).copy() # Filter to only those columns of object data type
+
+    for col in df.columns:
+        num_unique_values = len(df_obj[col].unique())
+        num_total_values = len(df_obj[col])
+        if (num_unique_values / num_total_values) < 0.5: # Only convert data types if at least half of values are duplicates
+            converted_df.loc[:,col] = df[col].astype('category') # Store these columns as dtype "category"
+        else:
+            converted_df.loc[:,col] = df[col]
+    
+    return converted_df
 
 
 # ### Set parsing keywords
@@ -474,14 +501,12 @@ def parse_school(schooltup):
     
     itervar +=1 # Count school
     datalocation = wget_dataloc # Define path to local data storage
-    school_name,school_address,school_URL = schooltup[0],schooltup[1],schooltup[2] # Assign variables from input tuple (safe because element order for a tuple is immutable)
+    school_name,school_address,school_URL,folder_name = schooltup[0],schooltup[1],schooltup[2],schooltup[3] # Assign variables from input tuple (safe because element order for a tuple is immutable)
     
     print("Parsing " + str(school_name) + ", which is ROUGHLY #" + str(6*itervar) + " / " + str(numschools) + " schools...")
     
     webtext,keywords_text,ideology_text = [],[],[] # Initialize local variables for text output
     duplicate_flag,parse_error_flag,wget_fail_flag,file_count = 0,0,0,0 # Initialize error flags
-    
-    folder_name = re.sub(" ","_",(school_name+" "+school_address[-8:-6]))
     
     school_folder = datalocation + folder_name + "/"
     error_file = school_folder + "error_flags.txt" # Define file path for error text log
@@ -594,7 +619,7 @@ def dictify_webtext(school_dict):
     webtext, keywords_text, ideology_text, file_count, etc."""
     
     # Allow function to access these variables already defined outside the function (globally)
-    global itervar,numschools,parsed,wget_dataloc,URL_var,NAME_var,ADDR_var
+    global itervar,numschools,parsed,wget_dataloc,URL_var,NAME_var,ADDR_var,save_dir
     
     datalocation = wget_dataloc # Define path to local data storage
     school_name, school_address, school_URL = school_dict[NAME_var], school_dict[ADDR_var], school_dict[URL_var] # Define varnames
@@ -606,8 +631,7 @@ def dictify_webtext(school_dict):
     school_dict["duplicate_flag"], school_dict["parse_error_flag"], school_dict["wget_fail_flag"] = [0 for _ in range(3)]
     school_dict['ess_strength'],school_dict['prog_strength'] = [0.0 for _ in range(2)]
     
-    folder_name = re.sub(" ","_",(school_name+" "+school_address[-8:-6]))
-    school_dict["folder_name"] = folder_name
+    folder_name = school_dict["folder_name"]
     
     school_folder = datalocation + folder_name + "/"
     error_file = school_folder + "error_flags.txt" # Define file path for error text log
@@ -643,10 +667,10 @@ def dictify_webtext(school_dict):
         school_dict["html_file_count"] = error_text[3].split()[-1]
         
         if int(school_dict["html_file_count"])==0:
-            school_dict["wget_fail_flag"] = 1
+            school_dict["wget_fail_flag"] = 1 # If no HTML, then web download failed!
         
         print("  LOADED " + school_dict["html_file_count"] + " .html file(s) from website of " + str(school_name) + "...")
-        #save_to_file(dicts_list, save_dir+"school_parser_temp", "JSON") # Save output so we can pick up where left off, in case something breaks before able to save final output
+        #save_datafile(dicts_list, save_dir+"school_parser_temp", "JSON") # Save output so we can pick up where left off, in case something breaks before able to save final output
         return
     
     except Exception as e:
@@ -658,66 +682,57 @@ def dictify_webtext(school_dict):
     
 def pandify_webtext(df):
     """Reads parsing output from text files and saves to DataFrame df multiple parsing outputs:
-    webtext, keywords_text, ideology_text, file_count, etc."""
+    webtext, keywords_text, ideology_text, file_count, dict_count outputs, etc."""
     
     # Allow function to access these variables already defined outside the function (globally)
-    global itervar,numschools,parsed,wget_dataloc,URL_var,NAME_var,ADDR_var
+    global numschools,parsed,wget_dataloc,URL_var,NAME_var,ADDR_var,save_dir
     
     datalocation = wget_dataloc # Define path to local data storage
-    school_name, school_address, school_URL = df[NAME_var], df[ADDR_var] df[URL_var] # Define varnames
-    itervar+=1 # Count this school
+    # VARNAMES ARE: school_name, school_address, school_URL = df[NAME_var], df[ADDR_var], df[URL_var]
     
-    print("Loading into dict parsing output for " + str(school_name) + ", which is school #" + str(itervar) + " of " + str(numschools) + "...")
+    print("Loading into DataFrame parsing output for " + str(numschools) + " school websites...")
+    df["school_folder"] = df.folder_name.apply(lambda x: str(datalocation) + '{}/'.format(str(x)))
+    df["error_file"] = df.school_folder.apply(lambda x: '{}error_flags.txt'.format(str(x))) # Define file path for error text log
     
-    df["webtext"], df["keywords_text"], df["ideology_text"] = [[] for _ in range(3)]
-    df["duplicate_flag"], df["parse_error_flag"], df["wget_fail_flag"] = [0 for _ in range(3)]
-    df['ess_strength'],df['prog_strength'] = [0.0 for _ in range(2)]
+    #df["folder_path"] = df["folder_name"].apply(lambda x: str(wget_dataloc)+'{}/'.format(str(x)))
+    #if df["folder_path"].apply(lambda x: list_files('{}, .html'.format(str(x))))==(None or df["folder_path"]) or not df["folder_path"].apply(lambda x: list_files('{}, .html'.format(str(x)))) or not (os.path.exists(wget_dataloc + school["folder_name"] + "/")) or os.path.exists(school["folder_name"].lower()) or os.path.exists(school["folder_name"].upper()):
     
-    folder_name = re.sub(" ","_",(school_name+" "+school_address[-8:-6]))
-    df["folder_name"] = folder_name
+    downloaded = df["wget_fail_flag"].map({"1":True,1:True,"0":False,0:False}) == False # This binary conditional filters df to only those rows with downloaded web content
     
-    school_folder = datalocation + folder_name + "/"
-    error_file = school_folder + "error_flags.txt" # Define file path for error text log
-    
-    if school_URL==school_name:
-        school_URL = folder_name # Workaround for full_schooldata, which doesn't yet have URLs
-
-    # Check if folder exists. If not, exit function
-    if not (os.path.exists(school_folder) or os.path.exists(school_folder.lower()) or os.path.exists(school_folder.upper())):
-        print("  !! NO DIRECTORY FOUND matching " + str(school_folder) + ". Aborting dictify function...")
-        df['wget_fail_flag'] = 1
-        return
-    
+    print("  got here A")
     try:
-        # Load school parse output from disk into dictionary 
-        df["webtext"] = load_list(school_folder + "webtext.txt")
-        df["keywords_text"] = load_list(school_folder + "keywords_text.txt")
-        df["ideology_text"] = load_list(school_folder + "ideology_text.txt")                        
+        # Load school parse output from disk into DataFrame # TO DO: Fix this!
+        df[downloaded]["webtext"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}webtext.txt".format(str(x)))) # df["wget_fail_flag"]==False # `progress_apply` works because `tqdm` has been set up
+        print("  got there B")
+        df[downloaded]["keywords_text"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}keywords_text.txt".format(str(x))))
+        df[downloaded]["ideology_text"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}ideology_text.txt".format(str(x))))
         
         """ # Comment out until dict_count is run
-        df["ess_count"] = load_list(school_folder + "ess_count.txt")
-        df["prog_count"] = load_list(school_folder + "prog_count.txt")
-        df["rit_count"] = load_list(school_folder + "rit_count.txt")
-        df['ess_strength'] = float(df['ess_count'])/float(df['rit_count'])
-        df['prog_strength'] = float(df['prog_count'])/float(df['rit_count'])
+        df[downloaded]["ess_count"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}ess_count.txt".format(str(x)))) # load_list(df.school_folder + "ess_count.txt")
+        df[downloaded]["prog_count"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}prog_count.txt".format(str(x))))
+        df[downloaded]["rit_count"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}rit_count.txt".format(str(x))))
+        df[downloaded]['ess_strength'] = float(df[downloaded]['ess_count'])/float(df[downloaded]['rit_count'])
+        df[downloaded]['prog_strength'] = float(df[downloaded]['prog_count'])/float(df[downloaded]['rit_count'])
         """
 
         # load error_file as a list with four pieces, the last element of each of which is the flag value itself:
-        error_text = load_list(error_file) 
-        df["duplicate_flag"] = error_text[0].split()[-1] # last element of first piece of error_text
-        df["parse_error_flag"] = error_text[1].split()[-1]
-        df["wget_fail_flag"] = error_text[2].split()[-1]
-        df["html_file_count"] = int(error_text[3].split()[-1])
+        df[downloaded]["error_text"] = df[downloaded].error_file.apply(lambda x: load_list('{}').format(str(x)))
+        df[downloaded]["duplicate_flag"] = df[downloaded].error_text.apply(lambda x: '{}'[0].split[-1].format(str(x))) # int(df.error_text[0].split()[-1]) # last element of first piece of error_text
+        df[downloaded]["parse_error_flag"] = df[downloaded].error_text.apply(lambda x: '{}'[1].split[-1].format(str(x))) #int(df.error_text[1].split()[-1])
+        df[downloaded]["wget_fail_flag"] = df[downloaded].error_text.apply(lambda x: '{}'[2].split[-1].format(str(x))) #int(df.error_text[2].split()[-1])
+        df[downloaded]["html_file_count"] = df[downloaded].error_text.apply(lambda x: '{}'[3].split[-1].format(str(x))) #int(df.error_text[3].split()[-1])
         
-        if int(school_dict["html_file_count"])==0:
-            school_dict["wget_fail_flag"] = 1
+        df[downloaded].drop(["school_folder","error_text","error_file"],axis=1) # Clean up temp variables
         
-        print("  LOADED " + df["html_file_count"].sum() + " .html files from " + str(schoolnum) + " school websites...")
-        save_to_file(df, save_dir+"df_parser_temp", "JSON") # Save output so we can pick up where left off, in case something breaks before able to save final output
+        if df[downloaded]["html_file_count"]==0:
+            df[downloaded]["wget_fail_flag"] = 1 # If no HTML, then web download failed!
+        
+        print("  LOADED " + df["html_file_count"].sum() + " .html files from into DataFrame!")
+        save_datafile(df, save_dir+"df_parser_temp", "JSON") # Save output so we can pick up where left off, in case something breaks before able to save final output
         return
     
     except Exception as e:
-        print("  ERROR! Failed to load parsing output into DataFrame.")
+        print("    ERROR! Failed to load parsing output into DataFrame.")
         print("  ",e)
         return
     
@@ -747,14 +762,32 @@ else:
         
 URL_var,NAME_var,ADDR_var = get_vars(data_loc) # get varnames depending on data source
 numschools = len(dicts_list) # Count number of schools in list of dictionaries
-        
-names,addresses,urls = [],[],[]
-for school in dicts_list:
+    
+names,addresses,urls,folder_names = [[] for _ in range(4)]
+print("  Setting folder paths and assessing HTML output...")
+for school in tqdm(dicts_list): # Wrap with tqdm to show progress bar
     names.append(school[NAME_var])
     addresses.append(school[ADDR_var])
     urls.append(school[URL_var])
-tuplist_zip = zip(names, addresses, urls) # Create list of tuples to pass to parser function
+    school["folder_name"] = re.sub(" ","_",(school[NAME_var]+" "+school[ADDR_var][-8:-6])) # This gives name and state separated by "_"
+    folder_names.append(school["folder_name"])
+    
+    school["folder_path"] = str(wget_dataloc) + school["folder_name"] + "/" # This temporary variable simplifies next line of code
+    
+    #if list_files(school["folder_path"], ".html")==(None or school["folder_path"]) or not list_files(school["folder_path"], ".html") or not (os.path.exists(wget_dataloc + school["folder_name"] + "/")) or os.path.exists(school["folder_name"].lower()) or os.path.exists(school["folder_name"].upper()):
+    if list_files(school["folder_path"], ".html")==(None or []) or not os.path.exists(wget_dataloc + school["folder_name"] + "/"):
+        school['wget_fail_flag'] = str(1) # If folder doesn't exist, mark as fail and ignore when loading files
+    else:
+        school['wget_fail_flag'] = str(0) # make str so can work with currently limited Pandas dtype conversion functionality
+     
+    del school["folder_path"] # Clean up temp var
+    
+tuplist_zip = zip(names, addresses, urls, folder_names) # Create list of tuples to pass to parser function
 
+# Now we convert dicts_list into a Pandas DataFrame and store the data in a memory-efficient way:
+schooldf = pd.DataFrame.from_dict(dicts_list) # Convert dicts_list into a DataFrame
+schooldf = convert_df(schooldf) # Make this DF memory-efficient by converting appropriate columns to category data type
+tqdm.pandas(desc="my bar!") # To show progress, create & register new `tqdm` instance with `pandas`
 
 # ### Run parsing algorithm on schools (requires access to webcrawl output)
 
@@ -763,17 +796,17 @@ if Debug:
     for school in test_dicts:
         parse_school(school)
     dictfile = "testing_dicts_" + str(datetime.today())
-    save_to_file(test_dicts, save_dir+dictfile, "JSON")
+    save_datafile(test_dicts, save_dir+dictfile, "JSON")
     sys.exit()
                 
-# Comment out until dictify_webtext() doesn't get OOMKilled
+"""# Comment out until dictify_webtext() doesn't get OOMKilled
 # Run parse_school() with multiprocessing.Pool(numcpus), 
 # which parses downloaded webtext and saves the results to local storage:
-#if __name__ == '__main__':
-#    with Pool(numcpus) as p:
-#        p.map(parse_school, list(tuplist_zip), chunksize=numcpus)
+if __name__ == '__main__':
+    with Pool(numcpus) as p:
+        p.map(parse_school, list(tuplist_zip), chunksize=numcpus)"""
 
-"""# Now use dictify_webtext to load the parsing outut from local storage into the list of dictionaries:
+"""# Now use dictify_webtext to load the parsing output from local storage into the list of dictionaries:
 for school in dicts_list:
     try:
         dictify_webtext(school)
@@ -783,15 +816,15 @@ for school in dicts_list:
         school_dict["parse_error_flag"] = 1
         continue"""
 
-# Now use pandify_webtext to load the parsing outut from local storage into the list of dictionaries:
-schooldf = pd.DataFrame.from_dict(dicts_list)
+# Now use pandify_webtext to load the parsing output from local storage into the DataFrame:
 try:
     pandify_webtext(schooldf)
 except Exception as e:
-    print("  ERROR! Failed to load parsing output into DataFrame parsing output.")
+    print("  ERROR! Failed to load parsing output into DataFrame.")
     print("  ",e)
+    sys.exit()
     
 # Save final output:
-print("\n\nSCHOOL PARSING COMPLETE!!!\n\n")
+print("\nSCHOOL PARSING COMPLETE!!!")
 dictfile = "school_dicts_" + str(datetime.today().strftime("%Y-%m-%d"))
-save_to_file(df, save_dir+dictfile, "JSON")
+save_datafile(schooldf, save_dir+dictfile, "pickle")

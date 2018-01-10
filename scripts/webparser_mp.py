@@ -291,6 +291,42 @@ def list_files(folder_path, extension):
     return matches
 
 
+def has_html(folder_path):
+    """Simple function that counts .html files and returns a binary:
+    'True' if a specified folder has any .html files in it, 'False' otherwise."""
+    
+    html_list = []
+    for dirpath,dirnames,filenames in os.walk(folder_path):
+        for file in fnmatch.filter(filenames, "*.html"): # Check if any HTML files in folder_path
+            html_list.append(file)
+    
+    if len(html_list)==0:
+        return False
+    else:
+        return True
+
+    
+def set_fail_flag(folder_name):
+    """The web_fail_flag indicates whether the webcrawl/download operation failed to capture any .html for a particular folder_name.
+    This function sets the web_fail_flag depending on two conditions: 
+    (1) Whether or not there exists a web download folder corresponding to folder_name, and
+    (2) Whether or not that folder contains at least one file with the .html extension."""
+    
+    global wget_dataloc,dicts_list # Need access to the dictionary file
+    web_fail_flag = "" # make output a str to work with currently limited Pandas dtype conversion functionality
+    
+    folder_path = str(wget_dataloc) + folder_name + "/"
+    if (not os.path.exists(folder_path)) or (has_html(folder_path)==False):
+        web_fail_flag = str(1) # If folder doesn't exist, mark as fail and ignore when loading files
+    else:
+        web_fail_flag = str(0) # make str so can work with currently limited Pandas dtype conversion functionality
+    
+    match_index = next((index for (index, d) in enumerate(dicts_list) if d["folder_name"] == folder_name), None) # Find dict index of input/folder_name
+    dicts_list[match_index]['wget_fail_flag'] = web_fail_flag # Assign output to dict entry for folder_name
+    
+    return
+
+
 def convert_df(df):
     """Makes a Pandas DataFrame more memory-efficient through intelligent use of Pandas data types: 
     specifically, by storing columns with repetitive Python strings not with the object dtype for unique values 
@@ -762,32 +798,29 @@ else:
         
 URL_var,NAME_var,ADDR_var = get_vars(data_loc) # get varnames depending on data source
 numschools = len(dicts_list) # Count number of schools in list of dictionaries
-    
 names,addresses,urls,folder_names = [[] for _ in range(4)]
-print("  Setting folder paths and assessing HTML output...")
-for school in tqdm(dicts_list): # Wrap with tqdm to show progress bar
+
+
+for school in dicts_list: # Wrap iterator with tqdm to show progress bar
     names.append(school[NAME_var])
     addresses.append(school[ADDR_var])
     urls.append(school[URL_var])
     school["folder_name"] = re.sub(" ","_",(school[NAME_var]+" "+school[ADDR_var][-8:-6])) # This gives name and state separated by "_"
     folder_names.append(school["folder_name"])
-    
-    school["folder_path"] = str(wget_dataloc) + school["folder_name"] + "/" # This temporary variable simplifies next line of code
-    
-    #if list_files(school["folder_path"], ".html")==(None or school["folder_path"]) or not list_files(school["folder_path"], ".html") or not (os.path.exists(wget_dataloc + school["folder_name"] + "/")) or os.path.exists(school["folder_name"].lower()) or os.path.exists(school["folder_name"].upper()):
-    if list_files(school["folder_path"], ".html")==(None or []) or not os.path.exists(wget_dataloc + school["folder_name"] + "/"):
-        school['wget_fail_flag'] = str(1) # If folder doesn't exist, mark as fail and ignore when loading files
-    else:
-        school['wget_fail_flag'] = str(0) # make str so can work with currently limited Pandas dtype conversion functionality
-     
-    del school["folder_path"] # Clean up temp var
+    #school['wget_fail_flag'] = set_fail_flag(school["folder_name"])
     
 tuplist_zip = zip(names, addresses, urls, folder_names) # Create list of tuples to pass to parser function
 
+print("  Assessing HTML output and setting web_fail_flags...")
+if __name__ == '__main__':
+    with Pool(numcpus) as p: # Use multiprocessing.Pool(numcpus) to speed things up
+        p.map(set_fail_flag, tqdm(folder_names), chunksize=numcpus)
+    
 # Now we convert dicts_list into a Pandas DataFrame and store the data in a memory-efficient way:
 schooldf = pd.DataFrame.from_dict(dicts_list) # Convert dicts_list into a DataFrame
 schooldf = convert_df(schooldf) # Make this DF memory-efficient by converting appropriate columns to category data type
-tqdm.pandas(desc="my bar!") # To show progress, create & register new `tqdm` instance with `pandas`
+tqdm.pandas(desc="Loading DF...") # To show progress, create & register new `tqdm` instance with `pandas`
+
 
 # ### Run parsing algorithm on schools (requires access to webcrawl output)
 
@@ -804,7 +837,7 @@ if Debug:
 # which parses downloaded webtext and saves the results to local storage:
 if __name__ == '__main__':
     with Pool(numcpus) as p:
-        p.map(parse_school, list(tuplist_zip), chunksize=numcpus)"""
+        p.map(parse_school, tqdm(list(tuplist_zip)), chunksize=numcpus)"""
 
 """# Now use dictify_webtext to load the parsing output from local storage into the list of dictionaries:
 for school in dicts_list:

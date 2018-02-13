@@ -16,7 +16,7 @@ Date: January 7th, 2018."""
 import os, re, fnmatch # for navigating file trees and working with strings
 import csv # for reading in CSV files
 #from glob import glob,iglob # for finding files within nested folders--compare with os.walk
-import json, pickle # For saving a loading dictionaries, etc. from file with JSON and pickle formats
+import json, pickle, csv # For saving a loading dictionaries, DataFrames, lists, etc. in JSON, pickle, and CSV formats
 from datetime import datetime # For timestamping files
 import sys # For working with user input
 from nltk.stem.porter import PorterStemmer # an approximate method of stemming words
@@ -96,7 +96,7 @@ if usefile and not notebook:
             input_file = answer2
             usefile = True
         else:
-            print("Invalid file path. Aborting script.")
+            print("Invalid file path" + str(answer2) + " \nAborting script.")
             sys.exit()
 
     elif answer == "N":
@@ -104,7 +104,7 @@ if usefile and not notebook:
         usefile = False
     
     else:
-        print("Response not interpretable. Aborting script.")
+        print("Response " + str(answer) + " not interpretable. \nAborting script.")
         sys.exit()
 
 
@@ -205,7 +205,7 @@ def load_list(file_path):
 
         
 def save_datafile(data, file, mode):
-    """Saves data to file using JSON or pickle format (whichever was specified).
+    """Saves data to file using JSON, pickle, or CSV format (whichever was specified).
     Works with Pandas DataFrames or other objects, e.g. a list of dictionaries."""
     
     file = str(file)
@@ -230,6 +230,17 @@ def save_datafile(data, file, mode):
                     data.to_pickle(file)
                 else:
                     pickle.dump(data, outfile)
+                print("Data saved to " + file + "!")
+                
+        elif mode.upper()=="CSV":
+            if not file.endswith(".csv"):
+                file += ".csv"
+            with open(file, 'w') as outfile:
+                if type(data)=="pandas.core.frame.DataFrame":
+                    data.to_csv(file,index=False)
+                else:
+                    wr = csv.writer(file)
+                    wr.writerows(data)
                 print("Data saved to " + file + "!")
 
         else:
@@ -312,7 +323,7 @@ def set_fail_flag(folder_name):
     (1) Whether or not there exists a web download folder corresponding to folder_name, and
     (2) Whether or not that folder contains at least one file with the .html extension."""
     
-    global wget_dataloc,dicts_list # Need access to the dictionary file
+    global wget_dataloc #,dicts_list # Need access to the list of dictionaries
     web_fail_flag = "" # make output a str to work with currently limited Pandas dtype conversion functionality
     
     folder_path = str(wget_dataloc) + folder_name + "/"
@@ -321,10 +332,10 @@ def set_fail_flag(folder_name):
     else:
         web_fail_flag = str(0) # make str so can work with currently limited Pandas dtype conversion functionality
     
-    match_index = next((index for (index, d) in enumerate(dicts_list) if d["folder_name"] == folder_name), None) # Find dict index of input/folder_name
-    dicts_list[match_index]['wget_fail_flag'] = web_fail_flag # Assign output to dict entry for folder_name
+    #match_index = next((index for (index, d) in enumerate(dicts_list) if d["folder_name"] == folder_name), None) # Find dict index of input/folder_name
+    #dicts_list[match_index]['wget_fail_flag'] = web_fail_flag # Assign output to dict entry for folder_name
     
-    return
+    return web_fail_flag
 
 
 def convert_df(df):
@@ -417,6 +428,7 @@ if Debug:
 # ### Define dictionary matching helper functions
 
 def dict_count(text_list, custom_dict):
+    
     """Performs dictionary analysis, returning number of dictionary hits found.
     Removes punctuation and stems the phrase being analyzed. 
     Compatible with multiple-word dictionary elements."""
@@ -438,6 +450,7 @@ def dict_count(text_list, custom_dict):
     return dictless_list,int(counts)
 
 def dict_match_len(phrase, custom_dict, length):
+    
     """Helper function to dict_match. 
     Returns # dictionary hits and updated copy of phrase with dictionary hits removed. 
     Stems phrases before checking for matches."""
@@ -457,6 +470,7 @@ def dict_match_len(phrase, custom_dict, length):
             counts += 1
             if Debug:
                 print(stemmed_word)
+                
     # Iterate through list of matching word indices and remove the matches
     for i in range(len(hits_indices)-1, -1, -1):
         splitted_phrase = splitted_phrase[:hits_indices[i]] + \
@@ -533,7 +547,7 @@ def parse_school(schooltup):
     mission, curriculum, philosophy, history, and about/general self-description, via categorize_page(); and
     contents of those individual pages best matching each of these categories, via find_best_categories."""
     
-    global itervar,numschools,parsed,wget_dataloc,dicts_list # Access variables defined outside function (globally)
+    global itervar,numschools,parsed,wget_dataloc,dicts_list,dictsnames_tupzip # Access variables defined outside function (globally)
     
     itervar +=1 # Count school
     datalocation = wget_dataloc # Define path to local data storage
@@ -707,7 +721,7 @@ def dictify_webtext(school_dict):
         
         print("  LOADED " + school_dict["html_file_count"] + " .html file(s) from website of " + str(school_name) + "...")
         #save_datafile(dicts_list, save_dir+"school_parser_temp", "JSON") # Save output so we can pick up where left off, in case something breaks before able to save final output
-        return
+        return school_dict
     
     except Exception as e:
         print("  ERROR! Failed to load into dict parsing output for " + str(school_name))
@@ -726,7 +740,7 @@ def pandify_webtext(df):
     datalocation = wget_dataloc # Define path to local data storage
     # VARNAMES ARE: school_name, school_address, school_URL = df[NAME_var], df[ADDR_var], df[URL_var]
     
-    print("Loading into DataFrame parsing output for " + str(numschools) + " school websites...")
+    print("Loading into DataFrame parsing output for " + str(len(df)) + " school websites out of a total of " + str(numschools) + "...")
     df["school_folder"] = df.folder_name.apply(lambda x: str(datalocation) + '{}/'.format(str(x)))
     df["error_file"] = df.school_folder.apply(lambda x: '{}error_flags.txt'.format(str(x))) # Define file path for error text log
     
@@ -735,24 +749,23 @@ def pandify_webtext(df):
     
     downloaded = df["wget_fail_flag"].map({"1":True,1:True,"0":False,0:False}) == False # This binary conditional filters df to only those rows with downloaded web content
     
-    print("  got here A")
     try:
-        # Load school parse output from disk into DataFrame # TO DO: Fix this!
+        # Load school parse output from disk into DataFrame
+        # df.loc[:,(downloaded,"keywords_text")] = df.loc[:,(downloaded,"school_folder")].progress_apply...
         df[downloaded]["webtext"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}webtext.txt".format(str(x)))) # df["wget_fail_flag"]==False # `progress_apply` works because `tqdm` has been set up
-        print("  got there B")
         df[downloaded]["keywords_text"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}keywords_text.txt".format(str(x))))
         df[downloaded]["ideology_text"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}ideology_text.txt".format(str(x))))
         
-        """ # Comment out until dict_count is run
+        # Comment out until dict_count is run
         df[downloaded]["ess_count"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}ess_count.txt".format(str(x)))) # load_list(df.school_folder + "ess_count.txt")
         df[downloaded]["prog_count"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}prog_count.txt".format(str(x))))
         df[downloaded]["rit_count"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}rit_count.txt".format(str(x))))
         df[downloaded]['ess_strength'] = float(df[downloaded]['ess_count'])/float(df[downloaded]['rit_count'])
         df[downloaded]['prog_strength'] = float(df[downloaded]['prog_count'])/float(df[downloaded]['rit_count'])
-        """
+        
 
         # load error_file as a list with four pieces, the last element of each of which is the flag value itself:
-        df[downloaded]["error_text"] = df[downloaded].error_file.apply(lambda x: load_list('{}').format(str(x)))
+        df[downloaded]["error_text"] = df[downloaded].error_file.apply(lambda x: load_list('{}'.format(str(x))))
         df[downloaded]["duplicate_flag"] = df[downloaded].error_text.apply(lambda x: '{}'[0].split[-1].format(str(x))) # int(df.error_text[0].split()[-1]) # last element of first piece of error_text
         df[downloaded]["parse_error_flag"] = df[downloaded].error_text.apply(lambda x: '{}'[1].split[-1].format(str(x))) #int(df.error_text[1].split()[-1])
         df[downloaded]["wget_fail_flag"] = df[downloaded].error_text.apply(lambda x: '{}'[2].split[-1].format(str(x))) #int(df.error_text[2].split()[-1])
@@ -764,15 +777,44 @@ def pandify_webtext(df):
             df[downloaded]["wget_fail_flag"] = 1 # If no HTML, then web download failed!
         
         print("  LOADED " + df["html_file_count"].sum() + " .html files from into DataFrame!")
-        save_datafile(df, save_dir+"df_parser_temp", "JSON") # Save output so we can pick up where left off, in case something breaks before able to save final output
-        return
+        save_datafile(df, save_dir+"df_parser_temp", "pickle") # Save output so we can pick up where left off, in case something breaks before able to save final output
+        return df
     
     except Exception as e:
-        print("    ERROR! Failed to load parsing output into DataFrame.")
+        print("    ERROR! Pandify function failed to load parsing output into DataFrame.")
         print("  ",e)
         return
     
+
+def slice_pandify(bigdf, numsplits, df_filepath):
+    """This function uses pandify_webtext() to load the parsing output from local storage into a DataFrame.
+    It gets around system memory limitations--which otherwise lead terminal to kill any attempts to pandify() all of bigdf--
+    by splitting bigdf into numsplits smaller dfslices, parsing webtext into each slice, and recombining them
+    by appending them to a big CSV on file. 
+    The number of slices equals numsplits, and bigdf is split by numschools/ numsplits."""
     
+    global numschools # Access numschools from within function (this is roughly 7000)
+    wheresplit = int(round(float(numschools)/numsplits)) # Get number on which to split (e.g., 1000) based on total number of schools data
+    
+    for num in range(numsplits): # tqdm(range(numsplits), desc="Loading dfslices"): # Wrap iterator with tqdm to show progress bar
+        try:
+            dfslice = pd.DataFrame()
+            dfslice = bigdf.iloc[(wheresplit*int(num)):(wheresplit*int(num+1)),:]
+            dfslice = pandify_webtext(dfslice) # Load parsed output into the DF
+            if num==1:
+                save_datafile(dfslice,df_filepath,"CSV") # Save this first chunk of results to new file
+            else:
+                dfslice.to_csv(df_filepath,mode="a",columns=False,index=False) # Append this next chunk of results to existing saved results
+            del dfslice # Free memory by deleting smaller slice
+            
+        except Exception as e:
+            print("  ERROR! Script failed to load parsing output into DataFrame slice #" + str(num) + " of " + str(numsplits) + ".")
+            print("  ",e)
+            sys.exit()
+            
+    return
+            
+            
 # ### Preparing data to be parsed
 
 itervar = 0 # initialize iterator that counts number of schools already parsed--useless when multiprocessing
@@ -797,67 +839,123 @@ else:
             dicts_list.append(row) # append each row to the list
         
 URL_var,NAME_var,ADDR_var = get_vars(data_loc) # get varnames depending on data source
-numschools = len(dicts_list) # Count number of schools in list of dictionaries
+numschools = int(len(dicts_list)) # Count number of schools in list of dictionaries
 names,addresses,urls,folder_names = [[] for _ in range(4)]
 
 
-for school in dicts_list: # Wrap iterator with tqdm to show progress bar
+for school in tqdm(dicts_list, desc="Setting web_fail_flags"): # Wrap iterator with tqdm to show progress bar
     names.append(school[NAME_var])
     addresses.append(school[ADDR_var])
     urls.append(school[URL_var])
     school["folder_name"] = re.sub(" ","_",(school[NAME_var]+" "+school[ADDR_var][-8:-6])) # This gives name and state separated by "_"
     folder_names.append(school["folder_name"])
-    #school['wget_fail_flag'] = set_fail_flag(school["folder_name"])
+    school['wget_fail_flag'] = set_fail_flag(school["folder_name"]) # Comment this out while testing pandify_webtext
     
 tuplist_zip = zip(names, addresses, urls, folder_names) # Create list of tuples to pass to parser function
 
-print("  Assessing HTML output and setting web_fail_flags...")
+"""
 if __name__ == '__main__':
     with Pool(numcpus) as p: # Use multiprocessing.Pool(numcpus) to speed things up
-        p.map(set_fail_flag, tqdm(folder_names), chunksize=numcpus)
+        p.map(set_fail_flag, tqdm(folder_names, desc="Setting web_fail_flags"), chunksize=numcpus)
+        """
     
 # Now we convert dicts_list into a Pandas DataFrame and store the data in a memory-efficient way:
-schooldf = pd.DataFrame.from_dict(dicts_list) # Convert dicts_list into a DataFrame
-schooldf = convert_df(schooldf) # Make this DF memory-efficient by converting appropriate columns to category data type
-tqdm.pandas(desc="Loading DF...") # To show progress, create & register new `tqdm` instance with `pandas`
+#schooldf = pd.DataFrame.from_dict(dicts_list) # Convert dicts_list into a DataFrame # TO DO: UN-DO
+#schooldf = pd.read_pickle(save_dir+"school_dicts_2018-01-10.pickle") # Use existing file while debugging pandify_webtext()
+#schooldf = convert_df(schooldf) # Make this DF memory-efficient by converting appropriate columns to category data type # TO DO: UN-DO
+tqdm.pandas(desc="Loading DF") # To show progress, create & register new `tqdm` instance with `pandas`
 
 
 # ### Run parsing algorithm on schools (requires access to webcrawl output)
 
 if Debug:
-    test_dicts = dicts_list[:1] # Limit number of schools to analyze, in order to refine methods
+    test_dicts = dicts_list[:1] # Limit number of schools to test/refine methods
     for school in test_dicts:
         parse_school(school)
     dictfile = "testing_dicts_" + str(datetime.today())
     save_datafile(test_dicts, save_dir+dictfile, "JSON")
     sys.exit()
                 
-"""# Comment out until dictify_webtext() doesn't get OOMKilled
+# Comment out until dictify_webtext() doesn't get OOMKilled
 # Run parse_school() with multiprocessing.Pool(numcpus), 
 # which parses downloaded webtext and saves the results to local storage:
 if __name__ == '__main__':
     with Pool(numcpus) as p:
-        p.map(parse_school, tqdm(list(tuplist_zip)), chunksize=numcpus)"""
+        p.map(parse_school, tqdm(list(tuplist_zip)), chunksize=numcpus)
 
 """# Now use dictify_webtext to load the parsing output from local storage into the list of dictionaries:
 for school in dicts_list:
     try:
-        dictify_webtext(school)
+        school = dictify_webtext(school)
     except Exception as e:
         print("  ERROR! Failed to load into dict parsing output for " + school[NAME_var])
         print("  ",e)
         school_dict["parse_error_flag"] = 1
         continue"""
 
+
+"""
+# To work with limited system memory (almost there!), split this df into chunks, compute on each, and recombine later.
+# The number of chunks equals numcpus, and schooldf is split by numschools/numcpus. 
+for num in range(numcpus):
+    try:
+        "splitdf{}".format(str(num)) = pd.DataFrame()
+        dfslice = pd.DataFrame()
+        dfslice = schooldf.iloc[(splitnum*int(num-1)):(splitnum*int(num)),:]
+    except Exception as e:
+        print("  ERROR! Script failed to split schooldf into smaller DataFrame #" + str(num) + " of " + str(numcpus) + ".")
+        print("  ",e)
+        sys.exit()
+
 # Now use pandify_webtext to load the parsing output from local storage into the DataFrame:
-try:
-    pandify_webtext(schooldf)
-except Exception as e:
-    print("  ERROR! Failed to load parsing output into DataFrame.")
-    print("  ",e)
-    sys.exit()
+splitnum = int(round(float(numschools)/numcpus)) # Get chunk number based on total number of schools data
+names_list = ["" for _ in range(numcpus)]
+for num in numcpus:
+    try:
+        names_list[num] = "splitdf{}".format(str(num))
+        dfslice = pd.DataFrame()
+        dfslice = schooldf.iloc[(splitnum*int(num-1)):(splitnum*int(num)),:]
+        dfslice = pandify_webtext(dfslice) # Load parsed output into the DF
+        if num==1:
+            save_datafile(dfslice,merged_df_file,"CSV") # Save this first chunk of results to new file
+        else:
+            dfslice.to_csv(merged_df_file,mode="a",columns=False,index=False) # Append this next chunk of results to existing saved results
+        del dfslice # Free memory by deleting smaller slice
+        
+        if num = numcpus:
+            del schooldf # Free memory by deleting full df, now that all the slices have been taken out
+        
+        splitdf1,splitdf2,splitdf3 = [pd.DataFrame() for _ in range(3)] # Initialize DFs to split into
+        splitnum = int(round(float(numschools)/3)) # Get chunk number based on total number of schools data
+        splitdf1 = schooldf.iloc[:splitnum,:]
+        splitdf2 = schooldf.iloc[splitnum:splitnum*2,:]
+        splitdf3 = schooldf.iloc[splitnum*2:,:]
+
+        splitdf1 = pandify_webtext(splitdf1)
+        save_datafile(splitdf1,merged_df_file,"CSV") # Save this first half of results
+        del splitdf1 # Free memory
+
+        splitdf2 = pandify_webtext(splitdf2)
+        splitdf2.to_csv(merged_df_file,mode="a",columns=False,index=False) # Append these results to existing saved results
+        del splitdf2 # Free memory
+
+        splitdf3 = pandify_webtext(splitdf3)
+        splitdf3.to_csv(merged_df_file,mode="a",columns=False,index=False) # Append these results to existing saved results
+        del splitdf3 # Free memory
+                  
+    except Exception as e:
+        print("  ERROR! Script failed to load parsing output into DataFrame #" + str(num) + " of " + str(numcpus) + "."")
+        print("  ",e)
+        sys.exit()"""
+
+                  
+merged_df_file = save_dir+"mergedf_"+str(datetime.today().strftime("%Y-%m-%d"))+".csv" # Prepare file name
+slice_pandify(schooldf, numcpus, merged_df_file)
+print("Larger DF successfully split into " + str(numpcus) + " smaller DFs, parsed, combined, and saved to file!")
+del schooldf # Free memory
     
 # Save final output:
 print("\nSCHOOL PARSING COMPLETE!!!")
+schooldf = pd.read_csv(merged_df_file) # Load it again so we can save it pickle-style
 dictfile = "school_dicts_" + str(datetime.today().strftime("%Y-%m-%d"))
 save_datafile(schooldf, save_dir+dictfile, "pickle")

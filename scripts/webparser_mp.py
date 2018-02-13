@@ -265,7 +265,7 @@ def load_datafile(file):
         with open(file,'rb') as infile:
             var = pickle.load(infile)
         
-    print("\n" + file + " successfully loaded!")
+    print(file + " successfully loaded!")
     return var
 
 
@@ -317,7 +317,7 @@ def has_html(folder_path):
         return True
 
     
-def set_fail_flag(folder_name):
+def set_failflag(folder_name):
     """The web_fail_flag indicates whether the webcrawl/download operation failed to capture any .html for a particular folder_name.
     This function sets the web_fail_flag depending on two conditions: 
     (1) Whether or not there exists a web download folder corresponding to folder_name, and
@@ -557,6 +557,7 @@ def parse_school(schooltup):
     
     webtext,keywords_text,ideology_text = [],[],[] # Initialize local variables for text output
     duplicate_flag,parse_error_flag,wget_fail_flag,file_count = 0,0,0,0 # Initialize error flags
+    file_list = [] # Initialize list of HTML files in school_folder
     
     school_folder = datalocation + folder_name + "/"
     error_file = school_folder + "error_flags.txt" # Define file path for error text log
@@ -578,7 +579,7 @@ def parse_school(schooltup):
             # if bool(BeautifulSoup(open(fname), bsparser).find())==True: # if file.endswith(".html"):
             # Another way to do this, maybe faster but broken: files_iter = iglob(school_folder + "**/*.html", recursive=True)
             
-            file_list = list_files(school_folder, ".html")
+            file_list = list_files(school_folder, ".html") # Get list of HTML files in school_folder
             
             if file_list==(None or school_folder) or not file_list:
                 print("  ERROR! File gathering function broken! Aborting parser for " + str(school_name) + "...")
@@ -588,7 +589,7 @@ def parse_school(schooltup):
             
             elif file_list==("" or []):
                 print("  No .html files found. Aborting parser for " + str(school_name) + "...")
-                parse_error_flag = 1
+                wget_fail_flag = 1
                 write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
                 return
             
@@ -741,15 +742,27 @@ def pandify_webtext(df):
     # VARNAMES ARE: school_name, school_address, school_URL = df[NAME_var], df[ADDR_var], df[URL_var]
     
     print("Loading into DataFrame parsing output for " + str(len(df)) + " school websites out of a total of " + str(numschools) + "...")
+    # df["folder_name"] = df[[NAME_var, ADDR_var]].apply(lambda x: re.sub(" ","_",("{} {}".format(str(x[0], x[1][-8:-6])))), axis=1) # This gives name and state separated by "_"  ## school["folder_name"] = re.sub(" ","_",(school[NAME_var]+" "+school[ADDR_var][-8:-6]))  ### Comment out while fixing parser
     df["school_folder"] = df.folder_name.apply(lambda x: str(datalocation) + '{}/'.format(str(x)))
     df["error_file"] = df.school_folder.apply(lambda x: '{}error_flags.txt'.format(str(x))) # Define file path for error text log
     
     #df["folder_path"] = df["folder_name"].apply(lambda x: str(wget_dataloc)+'{}/'.format(str(x)))
     #if df["folder_path"].apply(lambda x: list_files('{}, .html'.format(str(x))))==(None or df["folder_path"]) or not df["folder_path"].apply(lambda x: list_files('{}, .html'.format(str(x)))) or not (os.path.exists(wget_dataloc + school["folder_name"] + "/")) or os.path.exists(school["folder_name"].lower()) or os.path.exists(school["folder_name"].upper()):
     
-    downloaded = df["wget_fail_flag"].map({"1":True,1:True,"0":False,0:False}) == False # This binary conditional filters df to only those rows with downloaded web content
-    
     try:
+        # load error_file as a list with four pieces, the last element of each of which is the flag value itself:
+        df["error_text"] = df.error_file.apply(lambda x: load_list('{}'.format(str(x))))
+        df["duplicate_flag"] = df.error_text.apply(lambda x: '{}'[0].split[-1].format(str(x))) # int(df.error_text[0].split()[-1]) # last element of first piece of error_text
+        df["parse_error_flag"] = df.error_text.apply(lambda x: '{}'[1].split[-1].format(str(x))) #int(df.error_text[1].split()[-1])
+        df["wget_fail_flag"] = df.error_text.apply(lambda x: '{}'[2].split[-1].format(str(x))) #int(df.error_text[2].split()[-1])
+        df["html_file_count"] = df.error_text.apply(lambda x: '{}'[3].split[-1].format(str(x))) #int(df.error_text[3].split()[-1])
+        
+        #if df["html_file_count"]==0:
+        #    df["wget_fail_flag"] = 1 # If no HTML, then web download failed! ## REDUNDANT with parse_school()
+        
+        #df['wget_fail_flag'] = df.folder_name.progress_apply(lambda x: set_failflag(x)) # Comment out while fixing parser
+        downloaded = df["wget_fail_flag"].map({"1":True,1:True,"0":False,0:False}) == False # This binary conditional filters df to only those rows with downloaded web content
+        
         # Load school parse output from disk into DataFrame
         # df.loc[:,(downloaded,"keywords_text")] = df.loc[:,(downloaded,"school_folder")].progress_apply...
         df[downloaded]["webtext"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}webtext.txt".format(str(x)))) # df["wget_fail_flag"]==False # `progress_apply` works because `tqdm` has been set up
@@ -763,18 +776,7 @@ def pandify_webtext(df):
         df[downloaded]['ess_strength'] = float(df[downloaded]['ess_count'])/float(df[downloaded]['rit_count'])
         df[downloaded]['prog_strength'] = float(df[downloaded]['prog_count'])/float(df[downloaded]['rit_count'])
         
-
-        # load error_file as a list with four pieces, the last element of each of which is the flag value itself:
-        df[downloaded]["error_text"] = df[downloaded].error_file.apply(lambda x: load_list('{}'.format(str(x))))
-        df[downloaded]["duplicate_flag"] = df[downloaded].error_text.apply(lambda x: '{}'[0].split[-1].format(str(x))) # int(df.error_text[0].split()[-1]) # last element of first piece of error_text
-        df[downloaded]["parse_error_flag"] = df[downloaded].error_text.apply(lambda x: '{}'[1].split[-1].format(str(x))) #int(df.error_text[1].split()[-1])
-        df[downloaded]["wget_fail_flag"] = df[downloaded].error_text.apply(lambda x: '{}'[2].split[-1].format(str(x))) #int(df.error_text[2].split()[-1])
-        df[downloaded]["html_file_count"] = df[downloaded].error_text.apply(lambda x: '{}'[3].split[-1].format(str(x))) #int(df.error_text[3].split()[-1])
-        
         df[downloaded].drop(["school_folder","error_text","error_file"],axis=1) # Clean up temp variables
-        
-        if df[downloaded]["html_file_count"]==0:
-            df[downloaded]["wget_fail_flag"] = 1 # If no HTML, then web download failed!
         
         print("  LOADED " + df["html_file_count"].sum() + " .html files from into DataFrame!")
         save_datafile(df, save_dir+"df_parser_temp", "pickle") # Save output so we can pick up where left off, in case something breaks before able to save final output
@@ -783,7 +785,7 @@ def pandify_webtext(df):
     except Exception as e:
         print("    ERROR! Pandify function failed to load parsing output into DataFrame.")
         print("  ",e)
-        return
+        sys.exit()
     
 
 def slice_pandify(bigdf, numsplits, df_filepath):
@@ -805,7 +807,7 @@ def slice_pandify(bigdf, numsplits, df_filepath):
                 save_datafile(dfslice,df_filepath,"CSV") # Save this first chunk of results to new file
             else:
                 dfslice.to_csv(df_filepath,mode="a",columns=False,index=False) # Append this next chunk of results to existing saved results
-            del dfslice # Free memory by deleting smaller slice
+            del dfslice # Free memory by deleting this temporary, smaller slice
             
         except Exception as e:
             print("  ERROR! Script failed to load parsing output into DataFrame slice #" + str(num) + " of " + str(numsplits) + ".")
@@ -820,6 +822,7 @@ def slice_pandify(bigdf, numsplits, df_filepath):
 itervar = 0 # initialize iterator that counts number of schools already parsed--useless when multiprocessing
 parsed = [] # initialize list of URLs that have already been parsed
 dicts_list = [] # initialize list of dictionaries to hold school data
+schooldf = pd.DataFrame() # initialize DataFrame to hold school data
 
 # If input_file was defined by user input in beginning of script, use that to load list of dictionaries. We'll add to it!
 if usefile and not dicts_list:
@@ -849,19 +852,21 @@ for school in tqdm(dicts_list, desc="Setting web_fail_flags"): # Wrap iterator w
     urls.append(school[URL_var])
     school["folder_name"] = re.sub(" ","_",(school[NAME_var]+" "+school[ADDR_var][-8:-6])) # This gives name and state separated by "_"
     folder_names.append(school["folder_name"])
-    school['wget_fail_flag'] = set_fail_flag(school["folder_name"]) # Comment this out while testing pandify_webtext
+    # school['wget_fail_flag'] = set_failflag(school["folder_name"]) # REDUNDANT with parse_school()
+    # save_datafile(dicts_list, save_dir+"school_parser_temp", "JSON") # Save output so we can pick up where left off, in case something breaks
     
 tuplist_zip = zip(names, addresses, urls, folder_names) # Create list of tuples to pass to parser function
 
-"""
+""" # REDUNDANT with parse_school
 if __name__ == '__main__':
     with Pool(numcpus) as p: # Use multiprocessing.Pool(numcpus) to speed things up
-        p.map(set_fail_flag, tqdm(folder_names, desc="Setting web_fail_flags"), chunksize=numcpus)
+        p.map(set_failflag, tqdm(folder_names, desc="Setting web_fail_flags"), chunksize=numcpus)
         """
     
-# Now we convert dicts_list into a Pandas DataFrame and store the data in a memory-efficient way:
-#schooldf = pd.DataFrame.from_dict(dicts_list) # Convert dicts_list into a DataFrame # TO DO: UN-DO
+# Now create a Pandas DataFrame (from dicts_list or from file) and store the data in a memory-efficient way:
+schooldf = pd.DataFrame.from_dict(dicts_list) # Convert dicts_list into a DataFrame
 #schooldf = pd.read_pickle(save_dir+"school_dicts_2018-01-10.pickle") # Use existing file while debugging pandify_webtext()
+#schooldf = pd.read_csv(data_loc) # Creating school_df from scratch
 #schooldf = convert_df(schooldf) # Make this DF memory-efficient by converting appropriate columns to category data type # TO DO: UN-DO
 tqdm.pandas(desc="Loading DF") # To show progress, create & register new `tqdm` instance with `pandas`
 
@@ -876,13 +881,15 @@ if Debug:
     save_datafile(test_dicts, save_dir+dictfile, "JSON")
     sys.exit()
                 
-# Comment out until dictify_webtext() doesn't get OOMKilled
 # Run parse_school() with multiprocessing.Pool(numcpus), 
 # which parses downloaded webtext and saves the results to local storage:
 if __name__ == '__main__':
     with Pool(numcpus) as p:
         p.map(parse_school, tqdm(list(tuplist_zip)), chunksize=numcpus)
 
+
+# ### Load parsing output from disk into analyzable Python object (DataFrame or dicts_list)
+        
 """# Now use dictify_webtext to load the parsing output from local storage into the list of dictionaries:
 for school in dicts_list:
     try:
@@ -947,15 +954,22 @@ for num in numcpus:
         print("  ERROR! Script failed to load parsing output into DataFrame #" + str(num) + " of " + str(numcpus) + "."")
         print("  ",e)
         sys.exit()"""
-
                   
+
+# Load parsing output into big pandas DataFrame through slices (to work with limited system memory):
+if dicts_list:
+    del dicts_list # Free memory
+    
 merged_df_file = save_dir+"mergedf_"+str(datetime.today().strftime("%Y-%m-%d"))+".csv" # Prepare file name
 slice_pandify(schooldf, numcpus, merged_df_file)
 print("Larger DF successfully split into " + str(numpcus) + " smaller DFs, parsed, combined, and saved to file!")
-del schooldf # Free memory
+
+if schooldf:
+    del schooldf # Free memory
+    
     
 # Save final output:
 print("\nSCHOOL PARSING COMPLETE!!!")
-schooldf = pd.read_csv(merged_df_file) # Load it again so we can save it pickle-style
+schooldf = pd.read_csv(merged_df_file) # Load full DF so we can save it pickle-style
 dictfile = "school_dicts_" + str(datetime.today().strftime("%Y-%m-%d"))
 save_datafile(schooldf, save_dir+dictfile, "pickle")

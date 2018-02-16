@@ -6,7 +6,7 @@
     - user:
         name: jhaber
         uid: 1000
-        comment: "Brad Afzali"
+        comment: "Jaren Haber"
         groups: users,admin,docker
         shell: /bin/bash
     - user:
@@ -34,8 +34,14 @@
         groups: users,admin,docker
         shell: /bin/bash
     - user:
-        name: aculich
+        name: maxyuan
         uid: 1005
+        comment: "Max Yuan"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: aculich
+        uid: 1006
         comment: "Aaron Culich"
         groups: users,admin,docker
         shell: /bin/bash
@@ -62,6 +68,10 @@
         user: sujaksh
         state: present
         key: https://github.com/ajgokhale.keys
+    - authorized_key:
+        user: maxyuan
+        state: present
+        key: https://github.com/MaxYuan85.keys
     - authorized_key:
         user: aculich
         state: present

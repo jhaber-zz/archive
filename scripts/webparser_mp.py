@@ -3,13 +3,20 @@
 
 # # Parsing & Categorizing HTML from `wget` run with multiprocessing
 
+
+"""This script parses .html files previously downloaded into local folders for those schools (or organizations, generally) listed in a .csv directory file. It uses the BeautifulSoup, multiprocessing, and pandas modules to efficiently clean, filter, and merge webtext into various lists; it also uses dictionary methods to count the number of times any word from the provided dictionaries (essentialist and progressivist school ideologies, in this case) occurs in any page for a given school. The script then stores these lists to each school's folder as text files; incorporates them into a large pandas DataFrame; and then finally saves this as an analysis-ready pickle-formatted file.
+
+Author: Jaren Haber, PhD Candidate in UC Berkeley Sociology. 
+Date: January 7th, 2018."""
+
+
 # ## Initializing
 
 # import necessary libraries
 import os, re, fnmatch # for navigating file trees and working with strings
 import csv # for reading in CSV files
 #from glob import glob,iglob # for finding files within nested folders--compare with os.walk
-import json, pickle # For saving a loading dictionaries, etc. from file with JSON and pickle formats
+import json, pickle, csv # For saving a loading dictionaries, DataFrames, lists, etc. in JSON, pickle, and CSV formats
 from datetime import datetime # For timestamping files
 import sys # For working with user input
 from nltk.stem.porter import PorterStemmer # an approximate method of stemming words
@@ -18,6 +25,8 @@ from nltk import word_tokenize, sent_tokenize # widely used text tokenizer
 import urllib, urllib.request # for testing pages
 from unicodedata import normalize # for cleaning text by converting unicode character encodings into readable format
 from multiprocessing import Pool # for multiprocessing, to increase parsing speed
+import pandas as pd # modifies data more efficiently than with a list of dicts
+from tqdm import tqdm # For progress information during involved Pandas operations
 
 # Import parser
 from bs4 import BeautifulSoup # BS reads and parses even poorly/unreliably coded HTML 
@@ -55,21 +64,23 @@ example_page = "https://westlakecharter.com/about/"
 example_schoolname = "TWENTY-FIRST_CENTURY_NM"
 
 if workstation and notebook:
-    micro_sample13 = dir_prefix + "data\\micro-sample13_coded.csv" #data location for random micro-sample of 300 US charter schools
-    URL_schooldata = dir_prefix + "data\\charter_URLs_2014.csv" #data location for 2014 population of US charter schools
-    full_schooldata = dir_prefix + "data\\charter_merged_2014.csv"
+    micro_sample13 = dir_prefix + "data\\micro-sample13_coded.csv" # Random micro-sample of 300 US charter schools
+    URL_schooldata = dir_prefix + "data\\charter_URLs_2014.csv" # 2014 population of 6,973 US charter schools
+    full_schooldata = dir_prefix + "data\\charter_merged_2014.csv" # Above merged with PVI, EdFacts, year opened/closed
+    temp_data = dir_prefix + "data\\school_parser_temp.json" # Full_schooldata dict with output for some schools
     example_file = dir_prefix + "data\\example_file.html" #example_folder + "21stcenturypa.com/wp/default?page_id=27.tmp.html"
     dicts_dir = dir_prefix + "dicts\\" # Directory in which to find & save dictionary files
     save_dir = dir_prefix + "data\\" # Directory in which to save data files
 
 else:
     wget_dataloc = dir_prefix + "wget/parll_wget/" #data location for schools downloaded with wget in parallel (requires server access)
-    example_folder = wget_dataloc + "TWENTY-FIRST_CENTURY_NM/"
+    example_folder = wget_dataloc + "TWENTY-FIRST_CENTURY_NM/" # Random charter school folder
     example_file = dir_prefix + "wget/example_file.html" #example_folder + "21stcenturypa.com/wp/default?page_id=27.tmp.html"
 
     micro_sample13 = dir_prefix + "Charter-school-identities/data/micro-sample13_coded.csv" #data location for random micro-sample of 300 US charter schools
     URL_schooldata = dir_prefix + "Charter-school-identities/data/charter_URLs_2014.csv" #data location for 2014 population of US charter schools
-    full_schooldata = dir_prefix + "Charter-school-identities/data/charter_merged_2014.csv"
+    full_schooldata = dir_prefix + "Charter-school-identities/data/charter_merged_2014.csv" # Above merged with PVI, EdFacts, year opened/closed
+    temp_data = dir_prefix + "Charter-school-identities/data/school_parser_temp.json" # Full_schooldata dict with output for some schools
     dicts_dir = dir_prefix + "Charter-school-identities/dicts/" # Directory in which to find & save dictionary files
     save_dir = dir_prefix + "Charter-school-identities/data/" # Directory in which to save data files
     
@@ -85,7 +96,7 @@ if usefile and not notebook:
             input_file = answer2
             usefile = True
         else:
-            print("Invalid file path. Aborting script.")
+            print("Invalid file path" + str(answer2) + " \nAborting script.")
             sys.exit()
 
     elif answer == "N":
@@ -93,7 +104,7 @@ if usefile and not notebook:
         usefile = False
     
     else:
-        print("Response not interpretable. Aborting script.")
+        print("Response " + str(answer) + " not interpretable. \nAborting script.")
         sys.exit()
 
 
@@ -121,8 +132,8 @@ def get_vars(data):
         try:
             print("Error processing variables from data file " + str(data) + "!")
         except Exception as e:
-            print(e)
             print("ERROR: No data source established!\n")
+            print(e)
     
     return(URL_variable,NAME_variable,ADDR_variable)
 
@@ -165,10 +176,10 @@ def write_errors(error_file, error1, error2, error3, file_count):
     duplicate_flag, parse_error_flag, wget_fail_flag, and file_count."""
     
     with open(error_file, 'w') as file_handler:
-        file_handler.write("duplicate_flag " + str(error1) + "\n")
-        file_handler.write("parse_error_flag " + str(error2) + "\n")
-        file_handler.write("wget_fail_flag " + str(error3) + "\n")
-        file_handler.write("file_count " + str(file_count))
+        file_handler.write("duplicate_flag ", (int(error1)), "\n")
+        file_handler.write("parse_error_flag ", (int(error2)), "\n")
+        file_handler.write("wget_fail_flag ", (int(error3)), "\n")
+        file_handler.write("file_count ", (int(file_count)))
         return
 
     
@@ -193,8 +204,9 @@ def load_list(file_path):
     return textlist
 
         
-def save_to_file(dicts_list, file, mode):
-    """Saves dicts_list to file using JSON or pickle format (whichever was specified)."""
+def save_datafile(data, file, mode):
+    """Saves data to file using JSON, pickle, or CSV format (whichever was specified).
+    Works with Pandas DataFrames or other objects, e.g. a list of dictionaries."""
     
     file = str(file)
     mode = str(mode)
@@ -204,20 +216,38 @@ def save_to_file(dicts_list, file, mode):
             if not file.endswith(".json"):
                 file += ".json"
             with open(file, 'w') as outfile:
-                json.dump(dicts_list, outfile)
-                print("Dicts saved to " + file + "!")
+                if type(data)=="pandas.core.frame.DataFrame":
+                    data.to_json(file)
+                else:
+                    json.dump(data, outfile)
+                print("Data saved to " + file + "!")
 
         elif mode.lower()=="pickle":
             if not file.endswith(".pickle"):
                 file += ".pickle"
             with open(file, 'wb') as outfile:
-                pickle.dump(dicts_list, outfile)
-                print("Dicts saved to " + file + "!")
+                if type(data)=="pandas.core.frame.DataFrame":
+                    data.to_pickle(file)
+                else:
+                    pickle.dump(data, outfile)
+                print("Data saved to " + file + "!")
+                
+        elif mode.upper()=="CSV":
+            if not file.endswith(".csv"):
+                file += ".csv"
+            with open(file, 'w') as outfile:
+                if type(data)=="pandas.core.frame.DataFrame":
+                    data.to_csv(file,index=False)
+                else:
+                    wr = csv.writer(file)
+                    wr.writerows(data)
+                print("Data saved to " + file + "!")
 
         else:
-            print("ERROR! Save failed due to improper arguments. These are: file, object to be saved, and file format to save in.\n                  Specify either 'JSON' or 'pickle' as third argument ('mode' or file format) when calling this function.")
+            print("ERROR! Improper arguments. Please include: data object to save (Pandas DataFrames OK), file path, and file format ('JSON' or 'pickle').")
     
     except Exception as e:
+        print("Failed to save to " + str(file) + " into memory using " + str(mode) + " format. Please check arguments (data, file, mode) and try again.")
         print(e)
     
 
@@ -235,7 +265,7 @@ def load_datafile(file):
         with open(file,'rb') as infile:
             var = pickle.load(infile)
         
-    print(file + " successfully loaded!\n")
+    print(file + " successfully loaded!")
     return var
 
 
@@ -272,6 +302,68 @@ def list_files(folder_path, extension):
     return matches
 
 
+def has_html(folder_path):
+    """Simple function that counts .html files and returns a binary:
+    'True' if a specified folder has any .html files in it, 'False' otherwise."""
+    
+    html_list = []
+    for dirpath,dirnames,filenames in os.walk(folder_path):
+        for file in fnmatch.filter(filenames, "*.html"): # Check if any HTML files in folder_path
+            html_list.append(file)
+    
+    if len(html_list)==0:
+        return False
+    else:
+        return True
+
+    
+def set_failflag(folder_name):
+    """The web_fail_flag indicates whether the webcrawl/download operation failed to capture any .html for a particular folder_name.
+    This function sets the web_fail_flag depending on two conditions: 
+    (1) Whether or not there exists a web download folder corresponding to folder_name, and
+    (2) Whether or not that folder contains at least one file with the .html extension."""
+    
+    global wget_dataloc #,dicts_list # Need access to the list of dictionaries
+    web_fail_flag = "" # make output a str to work with currently limited Pandas dtype conversion functionality
+    
+    folder_path = str(wget_dataloc) + folder_name + "/"
+    if (not os.path.exists(folder_path)) or (has_html(folder_path)==False):
+        web_fail_flag = str(1) # If folder doesn't exist, mark as fail and ignore when loading files
+    else:
+        web_fail_flag = str(0) # make str so can work with currently limited Pandas dtype conversion functionality
+    
+    #match_index = next((index for (index, d) in enumerate(dicts_list) if d["folder_name"] == folder_name), None) # Find dict index of input/folder_name
+    #dicts_list[match_index]['wget_fail_flag'] = web_fail_flag # Assign output to dict entry for folder_name
+    
+    return web_fail_flag
+
+
+def convert_df(df):
+    """Makes a Pandas DataFrame more memory-efficient through intelligent use of Pandas data types: 
+    specifically, by storing columns with repetitive Python strings not with the object dtype for unique values 
+    (entirely stored in memory) but as categoricals, which are represented by repeated integer values. This is a 
+    net gain in memory when the reduced memory size of the category type outweighs the added memory cost of storing 
+    one more thing. As such, this function checks the degree of redundancy for a given column before converting it.
+    
+    # TO DO: Filter out non-object columns, make that more efficient by downcasting numeric types using pd.to_numeric(), 
+    merge  that with the converted object columns (see https://www.dataquest.io/blog/pandas-big-data/). 
+    For now, since the current DF is ENTIRELY composed of object types, code is left as is. 
+    But note that the current code will eliminate any non-object type columns."""
+    
+    converted_df = pd.DataFrame() # Initialize DF for memory-efficient storage of strings (object types)
+    df_obj = df.select_dtypes(include=['object']).copy() # Filter to only those columns of object data type
+
+    for col in df.columns:
+        num_unique_values = len(df_obj[col].unique())
+        num_total_values = len(df_obj[col])
+        if (num_unique_values / num_total_values) < 0.5: # Only convert data types if at least half of values are duplicates
+            converted_df.loc[:,col] = df[col].astype('category') # Store these columns as dtype "category"
+        else:
+            converted_df.loc[:,col] = df[col]
+    
+    return converted_df
+
+
 # ### Set parsing keywords
 
 keywords = ['values', 'academics', 'skills', 'purpose',
@@ -296,23 +388,97 @@ curriculum_keywords = set(stemmer.stem(word) for word in curriculum_keywords)
 philosophy_keywords = set(stemmer.stem(word) for word in philosophy_keywords)
 history_keywords = set(stemmer.stem(word) for word in history_keywords)
 about_keywords =  set(stemmer.stem(word) for word in about_keywords)
-keys_dict = set(stemmer.stem(key) for key in keywords)
+all_keywords = set(stemmer.stem(key) for key in keywords)
     
 if Debug:
-    print("\nList of keywords:\n", list(keys_dict))
+    print("\nList of keywords:\n", list(all_keywords))
 
 
-# To use with filtering, create combined dictionary for ideologies:
+# ### Create dictionaries for each ideology and one for combined ideologies
 
-ideol_dict = set()
-ideol_dict = load_dict(ideol_dict, dicts_dir + "ess_dict.txt")
-ideol_dict = load_dict(ideol_dict, dicts_dir + "prog_dict.txt")
+ess_dict, prog_dict, rit_dict, all_ideol = set(), set(), set(), set()
+all_ideol = load_dict(all_ideol, dicts_dir + "ess_dict.txt")
+all_ideol = load_dict(all_ideol, dicts_dir + "prog_dict.txt")
+ess_dict = load_dict(ess_dict, dicts_dir + "ess_dict.txt")
+prog_dict = load_dict(prog_dict, dicts_dir + "prog_dict.txt")
+rit_dict = load_dict(rit_dict, dicts_dir + "rit_dict.txt")
 
 if Debug:
-    print(len(ideol_dict), "entries loaded into the combined ideology dictionary.")
-    list_dict = list(ideol_dict)
+    print(len(all_ideol), "entries loaded into the combined ideology dictionary.")
+    list_dict = list(all_ideol)
     list_dict.sort(key = lambda x: x.lower())
     print("First 10 elements of combined ideology dictionary are:\n", list_dict[:10])
+    
+
+# ### Define list of tuples: keywords lists and their titles, for dictionary analyses
+
+titles_list = ("mission","curriculum","philosophy","history","about","ideology","keywords")
+keysnames_tupzip = zip((mission_keywords,curriculum_keywords,philosophy_keywords,history_keywords,about_keywords,\
+                        all_ideol,all_keywords), titles_list)
+
+dictsnames_list = ("ess", "prog", "rit", "all_ideol")
+dictsnames_tupzip = zip((ess_dict,prog_dict,rit_dict,all_ideol), dictsnames_list)
+
+if Debug:
+    print(list(keysnames_tupzip))
+    print()
+    print(list(dictsnames_tupzip))
+
+    
+# ### Define dictionary matching helper functions
+
+def dict_count(text_list, custom_dict):
+    
+    """Performs dictionary analysis, returning number of dictionary hits found.
+    Removes punctuation and stems the phrase being analyzed. 
+    Compatible with multiple-word dictionary elements."""
+    
+    counts = 0 # number of matches between text_list and custom_dict
+    dictless_list = [] # Updated text_list with dictionary hits removed
+    max_entry_length = max([len(entry.split()) for entry in custom_dict]) # Get length (in words) of longest entry in combined dictionary
+    
+    for chunk in text_list: # chunk may be several sentences or possibly paragraphs long
+        chunk = re.sub(r'[^\w\s]', '', chunk) # Remove punctuation with regex that keeps only letters and spaces
+
+        # Do dictionary analysis for word chunks of lengths max_entry_length down to 1, removing matches each time.
+        # This means longer dict entries will get removed first, useful in case they contain smaller entries.
+        for length in range(max_entry_length, 0, -1):
+            dictless_chunk,len_counts = dict_match_len(chunk,custom_dict,length)
+            dictless_list.append(dictless_chunk)
+            counts += len_counts
+    
+    return dictless_list,int(counts)
+
+def dict_match_len(phrase, custom_dict, length):
+    
+    """Helper function to dict_match. 
+    Returns # dictionary hits and updated copy of phrase with dictionary hits removed. 
+    Stems phrases before checking for matches."""
+    
+    hits_indices, counts = [], 0
+    splitted_phrase = phrase.split()
+    if len(splitted_phrase) < length:
+        return phrase, 0 # If text chunk is shorter than length of dict entries being matched, don't continue.
+    
+    for i in range(len(splitted_phrase) - length + 1):
+        to_stem = ""
+        for j in range(length):
+            to_stem += splitted_phrase[i+j] + " " # Builds chunk of 'length' words
+        stemmed_word = stemmer.stem(to_stem[:-1]) # stem chunk
+        if stemmed_word in custom_dict:
+            hits_indices.append(i) # Store the index of the word that has a dictionary hit
+            counts += 1
+            if Debug:
+                print(stemmed_word)
+                
+    # Iterate through list of matching word indices and remove the matches
+    for i in range(len(hits_indices)-1, -1, -1):
+        splitted_phrase = splitted_phrase[:hits_indices[i]] + \
+        splitted_phrase[hits_indices[i] + length:]
+    modified_phrase = ""
+    for sp in splitted_phrase: # Rebuild the modified phrase, with matches removed
+        modified_phrase += sp + " "
+    return modified_phrase[:-1], counts
 
 
 # ### Define parsing helper functions
@@ -363,8 +529,8 @@ def filter_dict_page(pagetext_list, keyslist):
 
 
 if Debug:
-    print("Output of filter_keywords_page with keywords:\n\n", filter_dict_page(example_textlist, keys_dict), "\n\n")    
-    print("Output of filter_keywords_page with ideology words:\n\n", filter_dict_page(example_textlist, ideol_dict), "\n\n")
+    print("Output of filter_keywords_page with keywords:\n\n", filter_dict_page(example_textlist, all_keywords), "\n\n")    
+    print("Output of filter_keywords_page with ideology words:\n\n", filter_dict_page(example_textlist, all_ideol), "\n\n")
 
 
 def parse_school(schooltup):
@@ -372,7 +538,8 @@ def parse_school(schooltup):
     """This core function parses webtext for a given school. Input is tuple: (name, address, url).
     It uses helper functions to run analyses and then returning multiple outputs:
     full (partially cleaned) webtext, by parsing webtext of each .html file (removing inline tags, etc.) within school's folder, via parsefile_by_tags();
-    and all text associated with specific categories by filtering webtext to those with elements from a defined keyword list, via filter_keywords_page().
+    all text associated with specific categories by filtering webtext to those with elements from a defined keyword list, via filter_keywords_page();
+    AND COUNTS FOR DICT MATCHES
     
     For the sake of parsimony and manageable script calls, OTHER similar functions/scripts return these additional outputs: 
     parsed webtext, having removed overlapping headers/footers common to multiple pages, via remove_overlaps();
@@ -380,18 +547,17 @@ def parse_school(schooltup):
     mission, curriculum, philosophy, history, and about/general self-description, via categorize_page(); and
     contents of those individual pages best matching each of these categories, via find_best_categories."""
     
-    global itervar,numschools,parsed,wget_dataloc,dicts_list # Access variables defined outside function (globally)
+    global itervar,numschools,parsed,wget_dataloc,dicts_list,dictsnames_tupzip # Access variables defined outside function (globally)
     
     itervar +=1 # Count school
     datalocation = wget_dataloc # Define path to local data storage
-    school_name,school_address,school_URL = schooltup[0],schooltup[1],schooltup[2] # Assign variables from input tuple (safe because element order for a tuple is immutable)
+    school_name,school_address,school_URL,folder_name = schooltup[0],schooltup[1],schooltup[2],schooltup[3] # Assign variables from input tuple (safe because element order for a tuple is immutable)
     
     print("Parsing " + str(school_name) + ", which is ROUGHLY #" + str(6*itervar) + " / " + str(numschools) + " schools...")
     
     webtext,keywords_text,ideology_text = [],[],[] # Initialize local variables for text output
     duplicate_flag,parse_error_flag,wget_fail_flag,file_count = 0,0,0,0 # Initialize error flags
-    
-    folder_name = re.sub(" ","_",(school_name+" "+school_address[-8:-6]))
+    file_list = [] # Initialize list of HTML files in school_folder
     
     school_folder = datalocation + folder_name + "/"
     error_file = school_folder + "error_flags.txt" # Define file path for error text log
@@ -413,7 +579,7 @@ def parse_school(schooltup):
             # if bool(BeautifulSoup(open(fname), bsparser).find())==True: # if file.endswith(".html"):
             # Another way to do this, maybe faster but broken: files_iter = iglob(school_folder + "**/*.html", recursive=True)
             
-            file_list = list_files(school_folder, ".html")
+            file_list = list_files(school_folder, ".html") # Get list of HTML files in school_folder
             
             if file_list==(None or school_folder) or not file_list:
                 print("  ERROR! File gathering function broken! Aborting parser for " + str(school_name) + "...")
@@ -423,7 +589,7 @@ def parse_school(schooltup):
             
             elif file_list==("" or []):
                 print("  No .html files found. Aborting parser for " + str(school_name) + "...")
-                parse_error_flag = 1
+                wget_fail_flag = 1
                 write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
                 return
             
@@ -437,10 +603,10 @@ def parse_school(schooltup):
                 try:                    
                     parsed_pagetext = parsefile_by_tags(file) # Parse page text (filter too?)
                         
-                    webtext.extend(parsed_pagetext) # Add new parsed text to long list
-
-                    keywords_text.extend(filter_dict_page(parsed_pagetext, keys_dict)) # Filter parsed file using keywords list
-                    ideology_text.extend(filter_dict_page(parsed_pagetext, ideol_dict)) # Filter parsed file using keywords list
+                    if len(parsed_pagetext) != 0: # Don't waste time adding empty pages
+                        webtext.extend(parsed_pagetext) # Add new parsed text to long list
+                        keywords_text.extend(filter_dict_page(parsed_pagetext, all_keywords)) # Filter using keywords
+                        ideology_text.extend(filter_dict_page(parsed_pagetext, all_ideol)) # Filter using ideology words
 
                     if Debug:
                         print("    Successfully parsed and filtered file " + str(file) + "...")
@@ -459,7 +625,7 @@ def parse_school(schooltup):
             
             parsed.append(school_URL)
             file_count = int(file_count-1)
-            print("  Parsed & categorized page text for " + str(file_count-1) + " .html file(s) from website of " + str(school_name) + "...")
+            print("  PARSED " + str(file_count-1) + " .html file(s) from website of " + str(school_name) + "...")
             
             write_list(school_folder + "webtext.txt", webtext)
             write_list(school_folder + "keywords_text.txt", keywords_text)
@@ -472,6 +638,24 @@ def parse_school(schooltup):
             print("    ",e)
             parse_error_flag = 1
             write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
+    
+    
+        try:
+            for adict,name in list(dictsnames_tupzip): # Names are: ("ess", "prog", "rit", "all_ideol")
+                dict_name = name + "_count"
+                dict_name = dict_count(school_folder,adict)[1]
+
+            print("  Counted " + str(int(ess_count)+int(prog_count)+int(rit_count)) + " total dictionary matches for " + str(school_name) + "...")
+            
+            write_list(school_folder + "ess_count.txt", ess_count)
+            write_list(school_folder + "prog_count.txt", prog_count)
+            write_list(school_folder + "rit_count.txt", rit_count)
+        
+        except:
+            print("    ERROR! Failed to count number of dict matches while parsing webtext of " + str(school_name))
+            print("    ",e)
+            school_dict["parse_error_flag"] = 1
+            write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
             return
     
     else:
@@ -482,22 +666,23 @@ def parse_school(schooltup):
 
     
 def dictify_webtext(school_dict):
-    """Reads from file and saves to school_dict multiple parsing outputs:
+    """Reads parsing output from text files and saves to school_dict multiple parsing outputs:
     webtext, keywords_text, ideology_text, file_count, etc."""
     
     # Allow function to access these variables already defined outside the function (globally)
-    global itervar,numschools,parsed,wget_dataloc,URL_var,NAME_var,ADDR_var
+    global itervar,numschools,parsed,wget_dataloc,URL_var,NAME_var,ADDR_var,save_dir
     
     datalocation = wget_dataloc # Define path to local data storage
-    school_name, school_address, school_URL = school[NAME_var], school[ADDR_var], school[URL_var] # Define varnames
+    school_name, school_address, school_URL = school_dict[NAME_var], school_dict[ADDR_var], school_dict[URL_var] # Define varnames
     itervar+=1 # Count this school
     
     print("Loading into dict parsing output for " + str(school_name) + ", which is school #" + str(itervar) + " of " + str(numschools) + "...")
     
-    school_dict["webtext"], school_dict["keywords_text"], school_dict["ideology_text"], school_dict["duplicate_flag"], school_dict["parse_error_flag"], school_dict["wget_fail_flag"] = [], [], [], 0, 0, 0
+    school_dict["webtext"], school_dict["keywords_text"], school_dict["ideology_text"] = [[] for _ in range(3)]
+    school_dict["duplicate_flag"], school_dict["parse_error_flag"], school_dict["wget_fail_flag"] = [0 for _ in range(3)]
+    school_dict['ess_strength'],school_dict['prog_strength'] = [0.0 for _ in range(2)]
     
-    folder_name = re.sub(" ","_",(school_name+" "+school_address[-8:-6]))
-    school_dict["folder_name"] = folder_name
+    folder_name = school_dict["folder_name"]
     
     school_folder = datalocation + folder_name + "/"
     error_file = school_folder + "error_flags.txt" # Define file path for error text log
@@ -512,31 +697,132 @@ def dictify_webtext(school_dict):
         return
     
     try:
+        # Load school parse output from disk into dictionary 
         school_dict["webtext"] = load_list(school_folder + "webtext.txt")
         school_dict["keywords_text"] = load_list(school_folder + "keywords_text.txt")
-        school_dict["ideology_text"] = load_list(school_folder + "ideology_text.txt")
+        school_dict["ideology_text"] = load_list(school_folder + "ideology_text.txt")                        
+        
+        """ # Comment out until dict_count is run
+        school_dict["ess_count"] = load_list(school_folder + "ess_count.txt")
+        school_dict["prog_count"] = load_list(school_folder + "prog_count.txt")
+        school_dict["rit_count"] = load_list(school_folder + "rit_count.txt")
+        school_dict['ess_strength'] = float(school_dict['ess_count'])/float(school_dict['rit_count'])
+        school_dict['prog_strength'] = float(school_dict['prog_count'])/float(school_dict['rit_count'])
+        """
 
-        error_text = load_list(error_file).splitlines()
-        school_dict["duplicate_flag"] = error_text[0].split()[-1]
+        # load error_file as a list with four pieces, the last element of each of which is the flag value itself:
+        error_text = load_list(error_file) 
+        school_dict["duplicate_flag"] = error_text[0].split()[-1] # last element of first piece of error_text
         school_dict["parse_error_flag"] = error_text[1].split()[-1]
         school_dict["wget_fail_flag"] = error_text[2].split()[-1]
         school_dict["html_file_count"] = error_text[3].split()[-1]
         
-        print("  Loaded into dict the parsing output for " + school_dict["html_file_count"] + " .html file(s) from website of " + str(school_name) + "...")
-        save_to_file(dicts_list, save_dir+"school_parser_temp", "JSON") # Save output so we can pick up where left off, in case something breaks before able to save final output
-        return
+        if int(school_dict["html_file_count"])==0:
+            school_dict["wget_fail_flag"] = 1 # If no HTML, then web download failed!
+        
+        print("  LOADED " + school_dict["html_file_count"] + " .html file(s) from website of " + str(school_name) + "...")
+        #save_datafile(dicts_list, save_dir+"school_parser_temp", "JSON") # Save output so we can pick up where left off, in case something breaks before able to save final output
+        return school_dict
     
     except Exception as e:
-        print("  ERROR! Failed to load into dict parsing out put for " + str(school_name))
+        print("  ERROR! Failed to load into dict parsing output for " + str(school_name))
         print("  ",e)
+        school_dict["parse_error_flag"] = 1
         return
 
     
+def pandify_webtext(df):
+    """Reads parsing output from text files and saves to DataFrame df multiple parsing outputs:
+    webtext, keywords_text, ideology_text, file_count, dict_count outputs, etc."""
+    
+    # Allow function to access these variables already defined outside the function (globally)
+    global numschools,parsed,wget_dataloc,URL_var,NAME_var,ADDR_var,save_dir
+    
+    datalocation = wget_dataloc # Define path to local data storage
+    # VARNAMES ARE: school_name, school_address, school_URL = df[NAME_var], df[ADDR_var], df[URL_var]
+    
+    print("Loading into DataFrame parsing output for " + str(len(df)) + " school websites out of a total of " + str(numschools) + "...")
+    # df["folder_name"] = df[[NAME_var, ADDR_var]].apply(lambda x: re.sub(" ","_",("{} {}".format(str(x[0], x[1][-8:-6])))), axis=1) # This gives name and state separated by "_"  ## school["folder_name"] = re.sub(" ","_",(school[NAME_var]+" "+school[ADDR_var][-8:-6]))  ### Comment out while fixing parser
+    df["school_folder"] = df.folder_name.apply(lambda x: str(datalocation) + '{}/'.format(str(x)))
+    df["error_file"] = df.school_folder.apply(lambda x: '{}error_flags.txt'.format(str(x))) # Define file path for error text log
+    
+    #df["folder_path"] = df["folder_name"].apply(lambda x: str(wget_dataloc)+'{}/'.format(str(x)))
+    #if df["folder_path"].apply(lambda x: list_files('{}, .html'.format(str(x))))==(None or df["folder_path"]) or not df["folder_path"].apply(lambda x: list_files('{}, .html'.format(str(x)))) or not (os.path.exists(wget_dataloc + school["folder_name"] + "/")) or os.path.exists(school["folder_name"].lower()) or os.path.exists(school["folder_name"].upper()):
+    
+    try:
+        # load error_file as a list with four pieces, the last element of each of which is the flag value itself:
+        df["error_text"] = df.error_file.apply(lambda x: load_list('{}'.format(str(x))))
+        df["duplicate_flag"] = df.error_text.apply(lambda x: '{}'[0].split[-1].format(str(x))) # int(df.error_text[0].split()[-1]) # last element of first piece of error_text
+        df["parse_error_flag"] = df.error_text.apply(lambda x: '{}'[1].split[-1].format(str(x))) #int(df.error_text[1].split()[-1])
+        df["wget_fail_flag"] = df.error_text.apply(lambda x: '{}'[2].split[-1].format(str(x))) #int(df.error_text[2].split()[-1])
+        df["html_file_count"] = df.error_text.apply(lambda x: '{}'[3].split[-1].format(str(x))) #int(df.error_text[3].split()[-1])
+        
+        #if df["html_file_count"]==0:
+        #    df["wget_fail_flag"] = 1 # If no HTML, then web download failed! ## REDUNDANT with parse_school()
+        
+        #df['wget_fail_flag'] = df.folder_name.progress_apply(lambda x: set_failflag(x)) # Comment out while fixing parser
+        downloaded = df["wget_fail_flag"].map({"1":True,1:True,"0":False,0:False}) == False # This binary conditional filters df to only those rows with downloaded web content
+        
+        # Load school parse output from disk into DataFrame
+        # df.loc[:,(downloaded,"keywords_text")] = df.loc[:,(downloaded,"school_folder")].progress_apply...
+        df[downloaded]["webtext"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}webtext.txt".format(str(x)))) # df["wget_fail_flag"]==False # `progress_apply` works because `tqdm` has been set up
+        df[downloaded]["keywords_text"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}keywords_text.txt".format(str(x))))
+        df[downloaded]["ideology_text"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}ideology_text.txt".format(str(x))))
+        
+        # Comment out until dict_count is run
+        df[downloaded]["ess_count"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}ess_count.txt".format(str(x)))) # load_list(df.school_folder + "ess_count.txt")
+        df[downloaded]["prog_count"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}prog_count.txt".format(str(x))))
+        df[downloaded]["rit_count"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}rit_count.txt".format(str(x))))
+        df[downloaded]['ess_strength'] = float(df[downloaded]['ess_count'])/float(df[downloaded]['rit_count'])
+        df[downloaded]['prog_strength'] = float(df[downloaded]['prog_count'])/float(df[downloaded]['rit_count'])
+        
+        df[downloaded].drop(["school_folder","error_text","error_file"],axis=1) # Clean up temp variables
+        
+        print("  LOADED " + df["html_file_count"].sum() + " .html files from into DataFrame!")
+        save_datafile(df, save_dir+"df_parser_temp", "pickle") # Save output so we can pick up where left off, in case something breaks before able to save final output
+        return df
+    
+    except Exception as e:
+        print("    ERROR! Pandify function failed to load parsing output into DataFrame.")
+        print("  ",e)
+        sys.exit()
+    
+
+def slice_pandify(bigdf, numsplits, df_filepath):
+    """This function uses pandify_webtext() to load the parsing output from local storage into a DataFrame.
+    It gets around system memory limitations--which otherwise lead terminal to kill any attempts to pandify() all of bigdf--
+    by splitting bigdf into numsplits smaller dfslices, parsing webtext into each slice, and recombining them
+    by appending them to a big CSV on file. 
+    The number of slices equals numsplits, and bigdf is split by numschools/ numsplits."""
+    
+    global numschools # Access numschools from within function (this is roughly 7000)
+    wheresplit = int(round(float(numschools)/numsplits)) # Get number on which to split (e.g., 1000) based on total number of schools data
+    
+    for num in range(numsplits): # tqdm(range(numsplits), desc="Loading dfslices"): # Wrap iterator with tqdm to show progress bar
+        try:
+            dfslice = pd.DataFrame()
+            dfslice = bigdf.iloc[(wheresplit*int(num)):(wheresplit*int(num+1)),:]
+            dfslice = pandify_webtext(dfslice) # Load parsed output into the DF
+            if num==1:
+                save_datafile(dfslice,df_filepath,"CSV") # Save this first chunk of results to new file
+            else:
+                dfslice.to_csv(df_filepath,mode="a",columns=False,index=False) # Append this next chunk of results to existing saved results
+            del dfslice # Free memory by deleting this temporary, smaller slice
+            
+        except Exception as e:
+            print("  ERROR! Script failed to load parsing output into DataFrame slice #" + str(num) + " of " + str(numsplits) + ".")
+            print("  ",e)
+            sys.exit()
+            
+    return
+            
+            
 # ### Preparing data to be parsed
 
 itervar = 0 # initialize iterator that counts number of schools already parsed--useless when multiprocessing
 parsed = [] # initialize list of URLs that have already been parsed
 dicts_list = [] # initialize list of dictionaries to hold school data
+schooldf = pd.DataFrame() # initialize DataFrame to hold school data
 
 # If input_file was defined by user input in beginning of script, use that to load list of dictionaries. We'll add to it!
 if usefile and not dicts_list:
@@ -556,39 +842,134 @@ else:
             dicts_list.append(row) # append each row to the list
         
 URL_var,NAME_var,ADDR_var = get_vars(data_loc) # get varnames depending on data source
-numschools = len(dicts_list) # Count number of schools in list of dictionaries
-        
-names,addresses,urls = [],[],[]
-for school in dicts_list:
+numschools = int(len(dicts_list)) # Count number of schools in list of dictionaries
+names,addresses,urls,folder_names = [[] for _ in range(4)]
+
+
+for school in tqdm(dicts_list, desc="Setting web_fail_flags"): # Wrap iterator with tqdm to show progress bar
     names.append(school[NAME_var])
     addresses.append(school[ADDR_var])
     urls.append(school[URL_var])
-tuplist_zip = zip(names, addresses, urls) # Create list of tuples to pass to parser function
+    school["folder_name"] = re.sub(" ","_",(school[NAME_var]+" "+school[ADDR_var][-8:-6])) # This gives name and state separated by "_"
+    folder_names.append(school["folder_name"])
+    # school['wget_fail_flag'] = set_failflag(school["folder_name"]) # REDUNDANT with parse_school()
+    # save_datafile(dicts_list, save_dir+"school_parser_temp", "JSON") # Save output so we can pick up where left off, in case something breaks
+    
+tuplist_zip = zip(names, addresses, urls, folder_names) # Create list of tuples to pass to parser function
+
+""" # REDUNDANT with parse_school
+if __name__ == '__main__':
+    with Pool(numcpus) as p: # Use multiprocessing.Pool(numcpus) to speed things up
+        p.map(set_failflag, tqdm(folder_names, desc="Setting web_fail_flags"), chunksize=numcpus)
+        """
+    
+# Now create a Pandas DataFrame (from dicts_list or from file) and store the data in a memory-efficient way:
+schooldf = pd.DataFrame.from_dict(dicts_list) # Convert dicts_list into a DataFrame
+#schooldf = pd.read_pickle(save_dir+"school_dicts_2018-01-10.pickle") # Use existing file while debugging pandify_webtext()
+#schooldf = pd.read_csv(data_loc) # Creating school_df from scratch
+#schooldf = convert_df(schooldf) # Make this DF memory-efficient by converting appropriate columns to category data type # TO DO: UN-DO
+tqdm.pandas(desc="Loading DF") # To show progress, create & register new `tqdm` instance with `pandas`
 
 
 # ### Run parsing algorithm on schools (requires access to webcrawl output)
 
-test_dicts = dicts_list[:1] # Limit number of schools to analyze, in order to refine methods
-
 if Debug:
+    test_dicts = dicts_list[:1] # Limit number of schools to test/refine methods
     for school in test_dicts:
         parse_school(school)
     dictfile = "testing_dicts_" + str(datetime.today())
-    save_to_file(test_dicts, save_dir+dictfile, "JSON")
+    save_datafile(test_dicts, save_dir+dictfile, "JSON")
     sys.exit()
                 
 # Run parse_school() with multiprocessing.Pool(numcpus), 
 # which parses downloaded webtext and saves the results to local storage:
 if __name__ == '__main__':
     with Pool(numcpus) as p:
-        p.map(parse_school, list(tuplist_zip), chunksize=numcpus)
+        p.map(parse_school, tqdm(list(tuplist_zip)), chunksize=numcpus)
 
-# Now use dictify_webtext to load the parsing outut from local storage into the list of dictionaries:
+
+# ### Load parsing output from disk into analyzable Python object (DataFrame or dicts_list)
+        
+"""# Now use dictify_webtext to load the parsing output from local storage into the list of dictionaries:
 for school in dicts_list:
-    dictify_webtext(school)
+    try:
+        school = dictify_webtext(school)
+    except Exception as e:
+        print("  ERROR! Failed to load into dict parsing output for " + school[NAME_var])
+        print("  ",e)
+        school_dict["parse_error_flag"] = 1
+        continue"""
 
+
+"""
+# To work with limited system memory (almost there!), split this df into chunks, compute on each, and recombine later.
+# The number of chunks equals numcpus, and schooldf is split by numschools/numcpus. 
+for num in range(numcpus):
+    try:
+        "splitdf{}".format(str(num)) = pd.DataFrame()
+        dfslice = pd.DataFrame()
+        dfslice = schooldf.iloc[(splitnum*int(num-1)):(splitnum*int(num)),:]
+    except Exception as e:
+        print("  ERROR! Script failed to split schooldf into smaller DataFrame #" + str(num) + " of " + str(numcpus) + ".")
+        print("  ",e)
+        sys.exit()
+
+# Now use pandify_webtext to load the parsing output from local storage into the DataFrame:
+splitnum = int(round(float(numschools)/numcpus)) # Get chunk number based on total number of schools data
+names_list = ["" for _ in range(numcpus)]
+for num in numcpus:
+    try:
+        names_list[num] = "splitdf{}".format(str(num))
+        dfslice = pd.DataFrame()
+        dfslice = schooldf.iloc[(splitnum*int(num-1)):(splitnum*int(num)),:]
+        dfslice = pandify_webtext(dfslice) # Load parsed output into the DF
+        if num==1:
+            save_datafile(dfslice,merged_df_file,"CSV") # Save this first chunk of results to new file
+        else:
+            dfslice.to_csv(merged_df_file,mode="a",columns=False,index=False) # Append this next chunk of results to existing saved results
+        del dfslice # Free memory by deleting smaller slice
+        
+        if num = numcpus:
+            del schooldf # Free memory by deleting full df, now that all the slices have been taken out
+        
+        splitdf1,splitdf2,splitdf3 = [pd.DataFrame() for _ in range(3)] # Initialize DFs to split into
+        splitnum = int(round(float(numschools)/3)) # Get chunk number based on total number of schools data
+        splitdf1 = schooldf.iloc[:splitnum,:]
+        splitdf2 = schooldf.iloc[splitnum:splitnum*2,:]
+        splitdf3 = schooldf.iloc[splitnum*2:,:]
+
+        splitdf1 = pandify_webtext(splitdf1)
+        save_datafile(splitdf1,merged_df_file,"CSV") # Save this first half of results
+        del splitdf1 # Free memory
+
+        splitdf2 = pandify_webtext(splitdf2)
+        splitdf2.to_csv(merged_df_file,mode="a",columns=False,index=False) # Append these results to existing saved results
+        del splitdf2 # Free memory
+
+        splitdf3 = pandify_webtext(splitdf3)
+        splitdf3.to_csv(merged_df_file,mode="a",columns=False,index=False) # Append these results to existing saved results
+        del splitdf3 # Free memory
+                  
+    except Exception as e:
+        print("  ERROR! Script failed to load parsing output into DataFrame #" + str(num) + " of " + str(numcpus) + "."")
+        print("  ",e)
+        sys.exit()"""
+                  
+
+# Load parsing output into big pandas DataFrame through slices (to work with limited system memory):
+if dicts_list:
+    del dicts_list # Free memory
+    
+merged_df_file = save_dir+"mergedf_"+str(datetime.today().strftime("%Y-%m-%d"))+".csv" # Prepare file name
+slice_pandify(schooldf, numcpus, merged_df_file)
+print("Larger DF successfully split into " + str(numpcus) + " smaller DFs, parsed, combined, and saved to file!")
+
+if schooldf:
+    del schooldf # Free memory
+    
     
 # Save final output:
-print("\n\nSCHOOL PARSING COMPLETE!!!\n\n")
-dictfile = "school_dicts_" + str(datetime.today())
-save_to_file(dicts_list, save_dir+dictfile, "JSON")
+print("\nSCHOOL PARSING COMPLETE!!!")
+schooldf = pd.read_csv(merged_df_file) # Load full DF so we can save it pickle-style
+dictfile = "school_dicts_" + str(datetime.today().strftime("%Y-%m-%d"))
+save_datafile(schooldf, save_dir+dictfile, "pickle")

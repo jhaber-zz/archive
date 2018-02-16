@@ -1,8 +1,7 @@
-# Ideology as stratification:
-## How charter schools map race and class onto organizational identities
-(Working title)
+# Stratification through organizational identity:
+## Do charter schools' ideologies reinforce social inequalities?
 
-This repo is for data and code related to my dissertation research on charter school identities as analyzed from mission statements (MSs) on their public websites. Most of the code is in Python 3 Jupyter Notebooks.
+This repo is for data and code related to my dissertation research on charter school identities as analyzed from mission statements (MSs) on their public websites. The code is in Python 3 Jupyter Notebooks and Python scripts.
 
 I will categorize identities using text analytic methods including Natural Language Processing (NLP; e.g., distinctive words, concordances), custom dictionaries, and unsupervised approaches (e.g., Structural Topic Models, Word Embeddings). The next step after that is to use statistical regression to connect identity patterns with community characteristics (e.g., class, race, political leanings).
 

@@ -176,10 +176,24 @@ def write_errors(error_file, error1, error2, error3, file_count):
     duplicate_flag, parse_error_flag, wget_fail_flag, and file_count."""
     
     with open(error_file, 'w') as file_handler:
-        file_handler.write("duplicate_flag ", (int(error1)), "\n")
-        file_handler.write("parse_error_flag ", (int(error2)), "\n")
-        file_handler.write("wget_fail_flag ", (int(error3)), "\n")
-        file_handler.write("file_count ", (int(file_count)))
+        file_handler.write("duplicate_flag {}\n".format(int(error1)))
+        file_handler.write("parse_error_flag {}\n".format(int(error2)))
+        file_handler.write("wget_fail_flag {}\n".format(int(error3)))
+        file_handler.write("file_count {}".format(int(file_count)))
+        return
+    
+
+def write_counts(file_path, names_list, counts_list):
+    """Writes to file_path the input dict_count names (a list) and counts (another list).
+    Assumes these two lists have same length and are in same order--
+    e.g., names_list[0]="ess_count" and counts_list[0]=ess_count."""
+    
+    with open(file_path, 'w') as file_handler:
+        for tup in zip(names_list,counts_list): # iterate over zipped list of tuples
+            if tup != list(zip(names_list,counts_list))[-1]:
+                file_handler.write("{} {}\n".format(tup[0],tup[1]))
+            else:
+                file_handler.write("{} {}".format(tup[0],tup[1]))
         return
 
     
@@ -396,9 +410,10 @@ if Debug:
 
 # ### Create dictionaries for each ideology and one for combined ideologies
 
-ess_dict, prog_dict, rit_dict, all_ideol = set(), set(), set(), set()
+ess_dict, prog_dict, rit_dict, all_ideol, all_dicts = set(), set(), set(), set(), set()
 all_ideol = load_dict(all_ideol, dicts_dir + "ess_dict.txt")
-all_ideol = load_dict(all_ideol, dicts_dir + "prog_dict.txt")
+all_ideol = load_dict(all_ideol, dicts_dir + "prog_dict.txt") # For complete ideological list, append second ideological dict
+all_dicts = load_dict(all_ideol, dicts_dir + "rit_dict.txt") # For complete dict list, append ritual dict terms too
 ess_dict = load_dict(ess_dict, dicts_dir + "ess_dict.txt")
 prog_dict = load_dict(prog_dict, dicts_dir + "prog_dict.txt")
 rit_dict = load_dict(rit_dict, dicts_dir + "rit_dict.txt")
@@ -410,19 +425,15 @@ if Debug:
     print("First 10 elements of combined ideology dictionary are:\n", list_dict[:10])
     
 
-# ### Define list of tuples: keywords lists and their titles, for dictionary analyses
-
-titles_list = ("mission","curriculum","philosophy","history","about","ideology","keywords")
-keysnames_tupzip = zip((mission_keywords,curriculum_keywords,philosophy_keywords,history_keywords,about_keywords,\
-                        all_ideol,all_keywords), titles_list)
-
-dictsnames_list = ("ess", "prog", "rit", "all_ideol")
-dictsnames_tupzip = zip((ess_dict,prog_dict,rit_dict,all_ideol), dictsnames_list)
-
+# Create tuples for keyword lists and dictionary terms:
+keys_tuple = tuple([mission_keywords,curriculum_keywords,philosophy_keywords,history_keywords,about_keywords,\
+                        all_ideol,all_keywords])
+dicts_tuple = tuple([ess_dict,prog_dict,rit_dict,all_dicts])
+    
 if Debug:
-    print(list(keysnames_tupzip))
+    print(list(keys_tuple))
     print()
-    print(list(dictsnames_tupzip))
+    print(list(dicts_tuple))
 
     
 # ### Define dictionary matching helper functions
@@ -547,122 +558,156 @@ def parse_school(schooltup):
     mission, curriculum, philosophy, history, and about/general self-description, via categorize_page(); and
     contents of those individual pages best matching each of these categories, via find_best_categories."""
     
-    global itervar,numschools,parsed,wget_dataloc,dicts_list,dictsnames_tupzip # Access variables defined outside function (globally)
-    
+    global itervar,numschools,parsed,wget_dataloc,dicts_list,keys_tuple,dicts_tuple # Access variables defined outside function (globally)
+        
     itervar +=1 # Count school
     datalocation = wget_dataloc # Define path to local data storage
     school_name,school_address,school_URL,folder_name = schooltup[0],schooltup[1],schooltup[2],schooltup[3] # Assign variables from input tuple (safe because element order for a tuple is immutable)
     
     print("Parsing " + str(school_name) + ", which is ROUGHLY #" + str(6*itervar) + " / " + str(numschools) + " schools...")
     
-    webtext,keywords_text,ideology_text = [],[],[] # Initialize local variables for text output
-    duplicate_flag,parse_error_flag,wget_fail_flag,file_count = 0,0,0,0 # Initialize error flags
-    file_list = [] # Initialize list of HTML files in school_folder
-    
     school_folder = datalocation + folder_name + "/"
     error_file = school_folder + "error_flags.txt" # Define file path for error text log
     
     if school_URL==school_name:
         school_URL = folder_name # Workaround for full_schooldata, which doesn't yet have URLs
-
-    # Check if folder exists. If not, exit function
+    
+    # PRELIMINARY TEST 1: Check if folder exists. If not, do not pass go; do not continue function.
+    duplicate_flag,parse_error_flag,wget_fail_flag,file_count = 0,0,0,0 # initialize error flags
+    
     if not (os.path.exists(school_folder) or os.path.exists(school_folder.lower()) or os.path.exists(school_folder.upper())):
-        print("  !! NO DIRECTORY FOUND matching " + str(school_folder) + ". Aborting parsing function...")
-        return
-    
-    if school_URL not in parsed: #check if this URL has already been parsed. If so, skip this school to avoid duplication bias
-        
+        print("  !! NO DIRECTORY FOUND, creating " + str(school_folder) + " for 'error_flags.txt' and aborting...")
+        wget_fail_flag = 1
         try:
-            # Parse file only if it contains HTML. This is easy: use the "*.html" wildcard pattern--
-            # also wget gave the ".html" file extension to appropriate files when downloading (`--adjust-extension` option)
-            # Less efficient ways to check if files contain HTML (e.g., for data not downloaded by wget):
-            # if bool(BeautifulSoup(open(fname), bsparser).find())==True: # if file.endswith(".html"):
-            # Another way to do this, maybe faster but broken: files_iter = iglob(school_folder + "**/*.html", recursive=True)
-            
-            file_list = list_files(school_folder, ".html") # Get list of HTML files in school_folder
-            
-            if file_list==(None or school_folder) or not file_list:
-                print("  ERROR! File gathering function broken! Aborting parser for " + str(school_name) + "...")
-                parse_error_flag = 1
-                write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
-                return
-            
-            elif file_list==("" or []):
-                print("  No .html files found. Aborting parser for " + str(school_name) + "...")
-                wget_fail_flag = 1
-                write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
-                return
-            
-            for file in file_list:
-                                    
-                file_count+=1 # add to count of parsed files
-                parsed_pagetext = []
-                if Debug:
-                    print("    Parsing HTML in " + str(file) + "...")
-                    
-                try:                    
-                    parsed_pagetext = parsefile_by_tags(file) # Parse page text (filter too?)
-                        
-                    if len(parsed_pagetext) != 0: # Don't waste time adding empty pages
-                        webtext.extend(parsed_pagetext) # Add new parsed text to long list
-                        keywords_text.extend(filter_dict_page(parsed_pagetext, all_keywords)) # Filter using keywords
-                        ideology_text.extend(filter_dict_page(parsed_pagetext, all_ideol)) # Filter using ideology words
-
-                    if Debug:
-                        print("    Successfully parsed and filtered file " + str(file) + "...")
-                        
-                    file_count+=1
-                        
-                    continue
-
-                except Exception as e:
-                    if Debug:
-                        print("    ERROR! Failed to parse file...")
-                        print("      ",e)
-                        continue
-                    else:
-                        continue
-            
-            parsed.append(school_URL)
-            file_count = int(file_count-1)
-            print("  PARSED " + str(file_count-1) + " .html file(s) from website of " + str(school_name) + "...")
-            
-            write_list(school_folder + "webtext.txt", webtext)
-            write_list(school_folder + "keywords_text.txt", keywords_text)
-            write_list(school_folder + "ideology_text.txt", ideology_text)
+            os.makedirs(school_folder) # Create empty folder for school to hold error_flags.txt (and nothing else)
             write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
             return
-
         except Exception as e:
-            print("  ERROR! Failed to parse & categorize webtext of " + str(school_name))
+            print("  Uh-oh! Failed to log error flags for " + str(school_name) + ".")
             print("    ",e)
-            parse_error_flag = 1
-            write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
-    
-    
-        try:
-            for adict,name in list(dictsnames_tupzip): # Names are: ("ess", "prog", "rit", "all_ideol")
-                dict_name = name + "_count"
-                dict_name = dict_count(school_folder,adict)[1]
-
-            print("  Counted " + str(int(ess_count)+int(prog_count)+int(rit_count)) + " total dictionary matches for " + str(school_name) + "...")
-            
-            write_list(school_folder + "ess_count.txt", ess_count)
-            write_list(school_folder + "prog_count.txt", prog_count)
-            write_list(school_folder + "rit_count.txt", rit_count)
-        
-        except:
-            print("    ERROR! Failed to count number of dict matches while parsing webtext of " + str(school_name))
-            print("    ",e)
-            school_dict["parse_error_flag"] = 1
-            write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
             return
     
-    else:
+    # PRELIMINARY TEST 2: Check if this school has already been parsed via its unique school_URL. If so, skip this school to avoid duplication bias.
+    if school_URL in parsed: 
         print("  DUPLICATE URL DETECTED. Skipping " + str(school_name) + "...")
         duplicate_flag = 1
         write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
         return
+    
+    # Next, initialize local (within-function) variables for text output
+    webtext,keywords_text,ideology_text,dictless_words = [],[],[],[] # text category lists
+    file_list = [] # list of HTML files in school_folder
+    
+    mission,curriculum,philosophy,history,about,ideology,keywords = [],[],[],[],[],[],[] # matched keyword lists
+    ess_count, prog_count, rit_count, alldict_count, all_matches = 0,0,0,0,0 # dict match counts
+    ess_dictless, prog_dictless, rit_dictless, alldict_dictless = [],[],[],[] # lists of unmatched words. Why?
+    # Later we can revise the dictionaries by looking at what content words were not counted by current dictionaries. 
+
+    titles_list = [mission,curriculum,philosophy,history,about,ideology,keywords] # list of matched keyword lists
+    dictsnames_list = [ess_count, prog_count, rit_count, alldict_count] # list of dict match counts
+    dictlessnames_list = [ess_dictless, prog_dictless, rit_dictless, alldict_dictless] # list of unmatched word lists
+
+    keysnames_tupzip = zip(keys_tuple, titles_list) # zips together keyword lists with the variables holding their matches
+    dictsnames_tupzip = zip(dicts_tuple, dictsnames_list, dictlessnames_list) # zips together dict terms lists with variables holding their matches and their not-matches
+
+    if Debug:
+        print(list(keysnames_tupzip))
+        print()
+        print(list(dictsnames_tupzip))
+    
+    # Now to parsing:
+    try:
+        # Parse file only if it contains HTML. This is easy: use the "*.html" wildcard pattern--
+        # also wget gave the ".html" file extension to appropriate files when downloading (`--adjust-extension` option)
+        # Less efficient ways to check if files contain HTML (e.g., for data not downloaded by wget):
+        # if bool(BeautifulSoup(open(fname), bsparser).find())==True: # if file.endswith(".html"):
+        # Another way to do this, maybe faster but broken: files_iter = iglob(school_folder + "**/*.html", recursive=True)
+            
+        file_list = list_files(school_folder, ".html") # Get list of HTML files in school_folder
+            
+        if file_list==(None or school_folder or "" or []) or not file_list or len(file_list)==0:
+            print("  No .html files found. Aborting parser for " + str(school_name) + "...")
+            wget_fail_flag = 1
+            write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
+            return
+            
+        for file in file_list:
+                                    
+            file_count+=1 # add to count of parsed files
+            parsed_pagetext = []
+                
+            if Debug:
+                print("    Parsing HTML in " + str(file) + "...")
+            else:
+                pass
+                    
+            # Parse and categorize page text:
+            try:                    
+                parsed_pagetext = parsefile_by_tags(file) # Parse page text (filter too?)
+                        
+                if len(parsed_pagetext) != 0: # Don't waste time adding empty pages
+                    webtext.extend(parsed_pagetext) # Add new parsed text to long list
+                    keywords_text.extend(filter_dict_page(parsed_pagetext, all_keywords)) # Filter using keywords
+                    ideology_text.extend(filter_dict_page(parsed_pagetext, all_ideol)) # Filter using ideology words
+
+                if Debug:
+                    print("    Successfully parsed and filtered file " + str(file) + "...")
+                else:
+                    pass
+                        
+                file_count+=1
+
+            except Exception as e:
+                if Debug:
+                    print("    ERROR! Failed to parse file...")
+                    print("      ",e)
+                else:
+                    pass
+                        
+            # Count dict matches:
+            try:
+                for adict,count_name,dictless_name in dictsnames_tupzip: # Iterate over dicts to find matches with parsed text of file
+                # Dicts are: (ess_dict, prog_dict, rit_dict, alldict_count); count_names are: (ess_count, prog_count, rit_count, alldict_count); dictless_names are: (ess_dictless, prog_dictless, rit_dictless, alldict_dictless)
+                    count_add = 0 # Initialize iterator for dict-specific count matches
+                    dictless_add,count_add = dict_count(parsed_pagetext,adict)
+                    count_name += count_add
+                    dictless_name += dictless_add
+                    all_matches += count_add
+                    
+                    print("  Discovered " + str(count_add) + " matches for " + str(file) + ", a total thus far of " + str(count_name) + " matches...")
+
+            except Exception as e:
+                if Debug:
+                    print("    ERROR! Failed to count number of dict matches while parsing " + str(file) + "...")
+                    print("    ",e)
+                else:
+                    #print("    ERROR! Failed to count number of dict matches while parsing " + str(file) + "...")
+                    #print("    ",e)
+                    pass
+                        
+        # Report and save output to disk:
+        parsed.append(school_URL)
+        file_count = int(file_count-1)
+        print("  PARSED " + str(file_count) + " .html file(s) from website of " + str(school_name) + "...")
+            
+        write_list(school_folder + "webtext.txt", webtext)
+        write_list(school_folder + "keywords_text.txt", keywords_text)
+        write_list(school_folder + "ideology_text.txt", ideology_text)
+            
+        print("  Counted " + str(all_matches) + " total dictionary matches for " + str(school_name) + " and found " + str(len(alldict_dictless)) + " uncounted words...") # int(ess_count)+int(prog_count)+int(rit_count)
+
+        write_counts(school_folder + "dict_counts.txt", ["ess_count","prog_count","rit_count"], [ess_count, prog_count, rit_count])
+        write_list(school_folder + "dictless_words.txt", alldict_dictless)
+                    
+        write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
+
+    except Exception as e:
+        print("  ERROR! Failed to parse, categorize, and get dict matches on webtext of " + str(school_name))
+        print("    ",e)
+        parse_error_flag = 1
+        write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
+
+    return
 
     
 def dictify_webtext(school_dict):
@@ -761,7 +806,7 @@ def pandify_webtext(df):
         #    df["wget_fail_flag"] = 1 # If no HTML, then web download failed! ## REDUNDANT with parse_school()
         
         #df['wget_fail_flag'] = df.folder_name.progress_apply(lambda x: set_failflag(x)) # Comment out while fixing parser
-        downloaded = df["wget_fail_flag"].map({"1":True,1:True,"0":False,0:False}) == False # This binary conditional filters df to only those rows with downloaded web content
+        downloaded = df["wget_fail_flag"].map({"1":True,1:True,"0":False,0:False}) == False # This binary conditional filters df to only those rows with downloaded web content (where wget_fail_flag==False and thus does NOT signal download failure)
         
         # Load school parse output from disk into DataFrame
         # df.loc[:,(downloaded,"keywords_text")] = df.loc[:,(downloaded,"school_folder")].progress_apply...
@@ -846,7 +891,7 @@ numschools = int(len(dicts_list)) # Count number of schools in list of dictionar
 names,addresses,urls,folder_names = [[] for _ in range(4)]
 
 
-for school in tqdm(dicts_list, desc="Setting web_fail_flags"): # Wrap iterator with tqdm to show progress bar
+for school in dicts_list: # tqdm(dicts_list, desc="Setting web_fail_flags"): # Wrap iterator with tqdm to show progress bar
     names.append(school[NAME_var])
     addresses.append(school[ADDR_var])
     urls.append(school[URL_var])

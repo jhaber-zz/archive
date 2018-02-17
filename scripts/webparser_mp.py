@@ -587,7 +587,7 @@ def parse_school(schooltup):
             print("    ",e)
             return
     
-    # PRELIMINARY TEST 2: Check if this school has already been parsed via its unique school_URL. If so, skip this school to avoid duplication bias.
+    # PRELIMINARY TEST 2: Check if this school has already been parsed--via its unique school_URL. If so, skip this school to avoid duplication bias.
     if school_URL in parsed: 
         print("  DUPLICATE URL DETECTED. Skipping " + str(school_name) + "...")
         duplicate_flag = 1
@@ -607,8 +607,10 @@ def parse_school(schooltup):
     dictsnames_list = [ess_count, prog_count, rit_count, alldict_count] # list of dict match counts
     dictlessnames_list = [ess_dictless, prog_dictless, rit_dictless, alldict_dictless] # list of unmatched word lists
 
+    # Now link together dict terms lists with variables holding their matches and their not-matches:
     keysnames_tupzip = zip(keys_tuple, titles_list) # zips together keyword lists with the variables holding their matches
-    dictsnames_tupzip = zip(dicts_tuple, dictsnames_list, dictlessnames_list) # zips together dict terms lists with variables holding their matches and their not-matches
+    #dictsnames_tuplist = zip(dicts_tuple, dictsnames_list, dictlessnames_list)
+    dictsnames_biglist = [[dicts_tuple[i],dictsnames_list[i],dictlessnames_list[i]] for i in range(len(dicts_tuple))]
 
     if Debug:
         print(list(keysnames_tupzip))
@@ -666,7 +668,7 @@ def parse_school(schooltup):
                         
             # Count dict matches:
             try:
-                for adict,count_name,dictless_name in dictsnames_tupzip: # Iterate over dicts to find matches with parsed text of file
+                """for adict,count_name,dictless_name in dictsnames_tupzip: # Iterate over dicts to find matches with parsed text of file
                 # Dicts are: (ess_dict, prog_dict, rit_dict, alldict_count); count_names are: (ess_count, prog_count, rit_count, alldict_count); dictless_names are: (ess_dictless, prog_dictless, rit_dictless, alldict_dictless)
                     count_add = 0 # Initialize iterator for dict-specific count matches
                     dictless_add,count_add = dict_count(parsed_pagetext,adict)
@@ -674,15 +676,28 @@ def parse_school(schooltup):
                     dictless_name += dictless_add
                     all_matches += count_add
                     
-                    print("  Discovered " + str(count_add) + " matches for " + str(file) + ", a total thus far of " + str(count_name) + " matches...")
+                    # Now use this count to update zipped list of tuples, so each iteration adds to the total dict_count:
+                    dictsnames_list = [ess_count, prog_count, rit_count, alldict_count] 
+                    dictsnames_tupzip = zip(dicts_tuple, dictsnames_list, dictlessnames_list) 
+                    
+                    print("  Discovered " + str(count_add) + " matches for " + str(file) + ", a total thus far of " + str(count_name) + " matches...")"""
+                
+                for i in range(len(dictsnames_biglist)): # Iterate over dicts to find matches with parsed text of file
+                # Dicts are: (ess_dict, prog_dict, rit_dict, alldict_count); count_names are: (ess_count, prog_count, rit_count, alldict_count); dictless_names are: (ess_dictless, prog_dictless, rit_dictless, alldict_dictless)
+                    # adict,count_name,dictless_name = dictsnames_tupzip[i]
+                    dictless_add,count_add = dict_count(parsed_pagetext,dictsnames_biglist[i][0])
+                    dictsnames_biglist[i][1] += count_add
+                    dictsnames_biglist[i][2] += dictless_add
+                    all_matches += count_add
+                    
+                    if Debug:
+                        print("  Discovered " + str(count_add) + " matches for " + str(file) + ", a total thus far of " + str(dictsnames_biglist[i][1]) + " matches...")
 
             except Exception as e:
                 if Debug:
                     print("    ERROR! Failed to count number of dict matches while parsing " + str(file) + "...")
                     print("    ",e)
                 else:
-                    #print("    ERROR! Failed to count number of dict matches while parsing " + str(file) + "...")
-                    #print("    ",e)
                     pass
                         
         # Report and save output to disk:
@@ -694,10 +709,10 @@ def parse_school(schooltup):
         write_list(school_folder + "keywords_text.txt", keywords_text)
         write_list(school_folder + "ideology_text.txt", ideology_text)
             
-        print("  Counted " + str(all_matches) + " total dictionary matches for " + str(school_name) + " and found " + str(len(alldict_dictless)) + " uncounted words...") # int(ess_count)+int(prog_count)+int(rit_count)
+        print("  Counted " + str(all_matches) + " total dictionary matches for " + str(school_name) + " and found " + str(len(dictsnames_biglist[3][2])) + " uncounted words...")
 
-        write_counts(school_folder + "dict_counts.txt", ["ess_count","prog_count","rit_count"], [ess_count, prog_count, rit_count])
-        write_list(school_folder + "dictless_words.txt", alldict_dictless)
+        write_counts(school_folder + "dict_counts.txt", ["ess_count","prog_count","rit_count"], [dictsnames_biglist[0][1], dictsnames_biglist[1][1], dictsnames_biglist[2][1]])
+        write_list(school_folder + "dictless_words.txt", dictsnames_biglist[3][2])
                     
         write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
 

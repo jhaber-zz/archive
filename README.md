@@ -10,3 +10,6 @@ At present this research is cross-sectional, looking at the population of curren
 For lots more details on my data and method, see my [April 2017 pre-registration with the Open Science Foundation](https://osf.io/zgh5u/), especially the [Prereg Challenge form](https://osf.io/zgh5u/register/565fb3678c5e4a66b5582f67).
 
 If you have questions, exciting ideas or comments, or want to congratulate me on something, do email me at jhaber@berkeley.edu. Thanks!
+
+A preliminary visual of charter school density by state in 2014:
+![Charter school density by state 2014](data/charters_map_alpha.png)

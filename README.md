@@ -12,4 +12,6 @@ For lots more details on my data and method, see my [April 2017 pre-registration
 If you have questions, exciting ideas or comments, or want to congratulate me on something, do email me at jhaber@berkeley.edu. Thanks!
 
 A preliminary visual of charter school density by state in 2014:
+
+
 ![Charter school density by state 2014](data/charters_map_alpha.png)

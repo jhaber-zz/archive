@@ -853,11 +853,11 @@ def pandify_webtext(df):
         
         # Load school parse output from disk into DataFrame
         # df.loc[:,(downloaded,"keywords_text")] = df.loc[:,(downloaded,"school_folder")].progress_apply...
-        df[downloaded]["webtext"] = df[downloaded].school_folder.apply(lambda x: load_list("{}webtext.txt".format(str(x)))) # df["wget_fail_flag"]==False
-        df[downloaded]["keywords_text"] = df[downloaded].school_folder.apply(lambda x: load_list("{}keywords_text.txt".format(str(x))))
-        df[downloaded]["ideology_text"] = df[downloaded].school_folder.apply(lambda x: load_list("{}ideology_text.txt".format(str(x))))
+        df[downloaded]["webtext"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}webtext.txt".format(str(x)))) # df["wget_fail_flag"]==False
+        df[downloaded]["keywords_text"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}keywords_text.txt".format(str(x))))
+        df[downloaded]["ideology_text"] = df[downloaded].school_folder.progress_apply(lambda x: load_list("{}ideology_text.txt".format(str(x))))
         
-        df["counts_text"] = df.counts_file.progress_apply(lambda x: load_list("{}".format(str(x))))
+        df["counts_text"] = df.counts_file.apply(lambda x: load_list("{}".format(str(x))))
         df[downloaded]["ess_count"] = df[downloaded].counts_text.apply(lambda x: "{}".format(str(x[0].split()[-1]))) # load_list(df.school_folder + "ess_count.txt")
         df[downloaded]["prog_count"] = df[downloaded].counts_text.apply(lambda x: "{}".format(str(x[1].split()[-1])))
         df[downloaded]["rit_count"] = df[downloaded].counts_text.apply(lambda x: "{}".format(str(x[2].split()[-1])))
@@ -901,10 +901,11 @@ def slice_pandify(bigdf, numsplits, df_filepath):
                 save_datafile(dfslice,df_filepath,"CSV") # Save this first chunk of results to new file, overwriting if needed
             else:
                 dfslice.to_csv(df_filepath,mode="a",index=False) # Append this next chunk of results to existing saved results
+                print("Data saved to " + df_filepath + "!")
             del dfslice # Free memory by deleting this temporary, smaller slice
             
         except Exception as e:
-            logging.critical("ERROR! Script failed to load parsing output into DataFrame slice #" + str(num) + " of " + str(numsplits) + ".")
+            logging.critical("ERROR! Script failed to load parsing output into DataFrame slice #" + str(num) + " of " + str(numsplits) + ".\n" + e)
             print("  ERROR! Script failed to load parsing output into DataFrame slice #" + str(num) + " of " + str(numsplits) + ".")
             print("  ",e)
             sys.exit()
@@ -980,7 +981,7 @@ if Debug:
 # which parses downloaded webtext and saves the results to local storage:
 if __name__ == '__main__':
     with Pool(numcpus) as p:
-        p.map(parse_school, tqdm(list(tuplist_zip)), chunksize=numcpus)
+        p.map(parse_school, tqdm(list(tuplist_zip), desc="Parsing folders"), chunksize=numcpus)
 
 
 # ### Load parsing output from disk into analyzable Python object (DataFrame or dicts_list)
@@ -1056,8 +1057,8 @@ if dicts_list is not None:
     del dicts_list # Free memory
     
 merged_df_file = temp_dir+"mergedf_"+str(datetime.today().strftime("%Y-%m-%d"))+".csv" # Prepare file name
-slice_pandify(schooldf, numcpus, merged_df_file)
-print("Larger DF successfully split into " + str(numcpus) + " smaller DFs, parsed, combined, and saved to file!")
+slice_pandify(schooldf, numcpus*5, merged_df_file)
+print("Larger DF successfully split into " + str(numcpus*5) + " smaller DFs, parsed, combined, and saved to file!")
 
 if schooldf is not None:
     del schooldf # Free memory

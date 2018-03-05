@@ -650,7 +650,7 @@ def pandify_webtext(df):
         logging.info("Loading webtext from disk into DF...")
         
         # Load school parse output from disk into DataFrame:
-        df.loc[downloaded,"webtext"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}webtext.txt".format(str(x)))) # df["wget_fail_flag"]==False
+        #df.loc[downloaded,"webtext"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}webtext.txt".format(str(x)))) # df["wget_fail_flag"]==False
         df.loc[downloaded,"keywords_text"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}keywords_text.txt".format(str(x))))
         df.loc[downloaded,"ideology_text"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}ideology_text.txt".format(str(x))))
         
@@ -662,7 +662,7 @@ def pandify_webtext(df):
         df.loc[downloaded,"prog_strength"] = (df.loc[downloaded,"prog_count"]/df.loc[downloaded, "rit_count"]).apply(pd.to_numeric, downcast='float') 
         #logging.info(str(df.loc[downloaded,'prog_strength']))
         
-        df.drop(["school_folder","error_text","error_file","counts_text"],axis=1) # Clean up temp variables
+        df = df.drop(["school_folder","error_text","error_file","counts_text"],axis=1) # Clean up temp variables
         
         logging.info("LOADED " + df["html_file_count"].sum() + " .html files into DataFrame!")
         #save_datafile(df, save_dir+"df_parser_temp", "pickle") # Save output so we can pick up where left off, in case something breaks before able to save final output
@@ -722,9 +722,11 @@ def slice_pandify(bigdf, numsplits, df_filepath):
                 dfslice.to_csv(df_filepath, mode="w", index=False, header=dfslice.columns.values, sep="\t", encoding="utf-8")
             #elif num==1:
             #    sys.exit()
+            elif num==284: # Skip Primavera_-_Online_AZ', which is slice #284 if numsplits = 6752
+                continue # Move on to next slice
             else: # Append next slice to existing file
                 dfslice.to_csv(df_filepath, mode="a", index=False, header=False, sep="\t", encoding="utf-8")
-            #save_datafile(dfslice,df_filepath,"CSV") # BROKEN function--Save slice to file--works whether writing new file or appending to CSV
+            #save_datafile(dfslice,df_filepath,"CSV") # BROKEN function--Save slice to file--should work whether writing new file or appending to CSV
             
             #print("Slice #" + str(num) + " saved to " + df_filepath + "!")
             logging.info("Slice #" + str(num) + " saved to " + df_filepath + "!")
@@ -789,7 +791,7 @@ numschools = int(len(schooldf)) # Count number of schools in list of dictionarie
 tqdm.pandas(desc="Loading webtext->DF") # To show progress, create & register new `tqdm` instance with `pandas`
 
 # Load parsing output into big pandas DataFrame through slices (to work with limited system memory):
-splits = 500
+splits = 6752
 merged_df_file = temp_dir+"mergedf_"+str(datetime.today().strftime("%Y-%m-%d"))+".csv" # Prepare file name
 slice_pandify(schooldf, splits, merged_df_file)
 print("Larger DF successfully split into " + str(splits) + " smaller DFs, parsed, combined, and saved to file!")

@@ -628,16 +628,22 @@ def pandify_webtext(df):
     
     # Initialize text strings and counts as empty, then convert data types:
     empty = ["" for elem in range(len(df["NCESSCH"]))] # Create empty string column length of longest variable (NCESCCH used for matching)
-    df = df.assign(webtext=empty, keywords_text=empty, ideology_text=empty, ess_count=empty, prog_count=empty, rit_count=empty, folder_name=empty) # Add empty columns to df
-    df.loc[:,["webtext", "keywords_text", "ideology_text", "folder_name"]] = df.loc[:,["webtext", "keywords_text", "ideology_text", "folder_name"]].apply(lambda x: x.astype(object)) # Convert to object type--holds text
-    df.loc[:,["ess_count", "prog_count", "rit_count"]] = df.loc[:,["ess_count", "prog_count", "rit_count"]].apply(pd.to_numeric, downcast="unsigned") # Convert to int dtype--holds positive numbers (no decimals)
+    df = df.assign(WEBTEXT=empty, KEYWORDS_TEXT=empty, IDEOLOGY_TEXT=empty, ESS_COUNT=empty, PROG_COUNT=empty, RIT_COUNT=empty, folder_name=empty, TOTETH=empty, PCTETH=empty) # Add empty columns to df
+    df.reindex[:,["WEBTEXT", "KEYWORDS_TEXT", "IDEOLOGY_TEXT", "folder_name"]] = df.loc[:,["WEBTEXT", "KEYWORDS_TEXT", "IDEOLOGY_TEXT", "folder_name"]].apply(lambda x: x.astype(object)) # Convert to object type--holds text
+    df.reindex[:,["ESS_COUNT", "PROG_COUNT", "RIT_COUNT","TOTETH","PCTETH"]] = df.loc[:,["ESS_COUNT", "PROG_COUNT", "rit_count","TOTETH","PCTETH"]].apply(pd.to_numeric, downcast="unsigned") # Convert to int dtype--holds positive numbers (no decimals)
     
-    df.loc[:,"folder_name"] = df.loc[:,[NAME_var,ADDR_var]].apply(lambda x: re.sub(" ","_","{} {}".format(str(x[0]),str(x[1][-8:-6]))), axis=1) # This gives name and state separated by "_"
-    df.loc[:,"school_folder"] = df.loc[:,"folder_name"].apply(lambda x: str(datalocation) + '{}/'.format(str(x)))
+    df.loc[:,"FOLDER_NAME"] = df.loc[:,[NAME_var,ADDR_var]].apply(lambda x: re.sub(" ","_","{} {}".format(str(x[0]),str(x[1][-8:-6]))), axis=1) # This gives name and state separated by "_"
+    df.loc[:,"school_folder"] = df.loc[:,"FOLDER_NAME"].apply(lambda x: str(datalocation) + '{}/'.format(str(x)))
     df.loc[:,"error_file"] = df.loc[:,"school_folder"].apply(lambda x: '{}error_flags.txt'.format(str(x))) # Define file path for error text log
     df.loc[:,"counts_file"] = df.loc[:,"school_folder"].apply(lambda x: '{}dict_counts.txt'.format(str(x)))
     
     try:
+        # Compute demographic variables:
+        df["TOTETH"] = df[["AM", "AS", "BL", "HI", "HP", "TR"]].apply(sum, axis=1) # Number of nonwhite K-12 students
+        df["PCTETH"] = df["TOTETH"]/df["MEMBER"] # Percent nonwhite K-12 students
+        # df["AGE"] = data_year - df["YEAR_OPENED"] # TO DO: GET THIS TO WORK
+        #df["LOCALE"] = df["LOCALE"].map() # TO DO: inspect & recode this variable
+        
         # load error_file as a list with four pieces, the last element of each of which is the flag value itself:
         df.loc[:,"error_text"] = df.loc[:,"error_file"].apply(lambda x: load_list('{}'.format(str(x))))
         df.loc[:,"duplicate_flag"] = df.loc[:,"error_text"].apply(lambda x: '{}'.format(str(x[0].split()[-1]))) #  # last element of first piece of error_text
@@ -650,16 +656,16 @@ def pandify_webtext(df):
         logging.info("Loading webtext from disk into DF...")
         
         # Load school parse output from disk into DataFrame:
-        #df.loc[downloaded,"webtext"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}webtext.txt".format(str(x)))) # df["wget_fail_flag"]==False
-        df.loc[downloaded,"keywords_text"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}keywords_text.txt".format(str(x))))
-        df.loc[downloaded,"ideology_text"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}ideology_text.txt".format(str(x))))
+        df.loc[downloaded,"WEBTEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}webtext.txt".format(str(x)))) # df["wget_fail_flag"]==False
+        df.loc[downloaded,"KEYWORDS_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}keywords_text.txt".format(str(x))))
+        df.loc[downloaded,"IDEOLOGY_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}ideology_text.txt".format(str(x))))
         
         df["counts_text"] = df.counts_file.apply(lambda x: load_list("{}".format(str(x))))
-        df.loc[downloaded,"ess_count"] = df.loc[downloaded,"counts_text"].apply(lambda x: "{}".format(str(x[0].split()[-1]))).apply(pd.to_numeric,downcast='unsigned') # 2nd element of 1st row in counts_text: take as uint dtype (no negatives)
-        df.loc[downloaded,"prog_count"] = df.loc[downloaded,"counts_text"].apply(lambda x: "{}".format(str(x[1].split()[-1]))).apply(pd.to_numeric,downcast='unsigned') # 2nd element of 2nd row
-        df.loc[downloaded,"rit_count"] = df.loc[downloaded,"counts_text"].apply(lambda x: "{}".format(str(x[2].split()[-1]))).apply(pd.to_numeric,downcast='unsigned') # 2nd element of 3nd row
-        df.loc[downloaded,"ess_strength"] = (df.loc[downloaded,"ess_count"]/df.loc[downloaded, "rit_count"]).apply(pd.to_numeric, downcast='float') # calculate ideology ratio, use most memory-efficient float dtype
-        df.loc[downloaded,"prog_strength"] = (df.loc[downloaded,"prog_count"]/df.loc[downloaded, "rit_count"]).apply(pd.to_numeric, downcast='float') 
+        df.loc[downloaded,"ESS_COUNT"] = df.loc[downloaded,"counts_text"].apply(lambda x: "{}".format(str(x[0].split()[-1]))).apply(pd.to_numeric,downcast='unsigned') # 2nd element of 1st row in counts_text: take as uint dtype (no negatives)
+        df.loc[downloaded,"PROG_COUNT"] = df.loc[downloaded,"counts_text"].apply(lambda x: "{}".format(str(x[1].split()[-1]))).apply(pd.to_numeric,downcast='unsigned') # 2nd element of 2nd row
+        df.loc[downloaded,"RIT_COUNT"] = df.loc[downloaded,"counts_text"].apply(lambda x: "{}".format(str(x[2].split()[-1]))).apply(pd.to_numeric,downcast='unsigned') # 2nd element of 3nd row
+        df.loc[downloaded,"ESS_STRENGTH"] = (df.loc[downloaded,"ESS_COUNT"]/df.loc[downloaded, "RIT_COUNT"]).apply(pd.to_numeric, downcast='float') # calculate ideology ratio, use most memory-efficient float dtype
+        df.loc[downloaded,"PROG_STRENGTH"] = (df.loc[downloaded,"PROG_COUNT"]/df.loc[downloaded, "RIT_COUNT"]).apply(pd.to_numeric, downcast='float') 
         #logging.info(str(df.loc[downloaded,'prog_strength']))
         
         df = df.drop(["school_folder","error_text","error_file","counts_text"],axis=1) # Clean up temp variables
@@ -676,7 +682,7 @@ def pandify_webtext(df):
         sys.exit()
     
 
-def slice_pandify(bigdf, numsplits, df_filepath):
+def slice_pandify(bigdf_iter, numsplits, df_filepath):
     """This function uses pandify_webtext() to load the parsing output from local storage into a DataFrame.
     It gets around system memory limitations--which otherwise lead terminal to kill any attempts to pandify() all of bigdf--
     by splitting bigdf into numsplits smaller dfslices, parsing webtext into each slice, and recombining them
@@ -684,13 +690,17 @@ def slice_pandify(bigdf, numsplits, df_filepath):
     The number of slices equals numsplits, and bigdf is split by numschools/ numsplits."""
     
     global numschools # Access numschools from within function (this is roughly 7000)
-    wheresplit = int(round(float(numschools)/float(numsplits))) # Get number on which to split (e.g., 1000) based on total number of schools data. This splitting number will be iterated over using numsplits
+    wheresplit = int(round(float(numschools)/float(numsplits))) # Get number on which to split (e.g., 1000) based on total number of schools data. This splitting number will be used to iterate over numsplits
     
     for num in tqdm(range(numsplits), desc="Loading " + str(numsplits) + " DF slices"): # Wrap iterator with tqdm to show progress bar
         try:
             dfslice = pd.DataFrame()
+            dfslice = bigdf_iter.get_chunk(wheresplit) # Get next chunk of rows 
+            dfslice = dfslice[dfslice.ADDRESS14 != 'ADDRESS14'] # Clean out any cases of header being written as row
+            dfslice = convert_df(dfslice) # Make this slice memory-efficient by appropriately converting column dtypes
+
             startnum, endnum = wheresplit*int(num),wheresplit*int(num+1)
-            dfslice = bigdf.iloc[startnum:endnum,:]
+            #dfslice = bigdf_iter.iloc[startnum:endnum,:]
             #print("Loading DF parsing output for slice #" + str(num) + " of " + str(numschools) + " school websites, from #" + str(startnum) + "-" + str(endnum) + "...")
             logging.info("Loading parsing output for slice #" + str(num) + " of " + str(numschools) + " school websites, from #" + str(startnum) + "-" + str(endnum) + "...")
             
@@ -722,8 +732,9 @@ def slice_pandify(bigdf, numsplits, df_filepath):
                 dfslice.to_csv(df_filepath, mode="w", index=False, header=dfslice.columns.values, sep="\t", encoding="utf-8")
             #elif num==1:
             #    sys.exit()
-            elif num==284: # Skip Primavera_-_Online_AZ', which is slice #284 if numsplits = 6752
-                continue # Move on to next slice
+            #elif num==(284 or 441 or 593 or 594 or 595 or 596 or 1159 or 1218 or 1219 or 1271 or 1297 or 1303 or 1667 or 1861 or 3361 or 4467 or 4836 or 4871 or 4910 or 5418): # or num==441 or num==593: # Skip Primavera_-_Online_AZ', which is slice #284 if numsplits = 6752
+            #    continue # Move on to next slice
+            # TO DO: Clean out excess HTML (e.g., blog posts) in wget downloads for these schools
             else: # Append next slice to existing file
                 dfslice.to_csv(df_filepath, mode="a", index=False, header=False, sep="\t", encoding="utf-8")
             #save_datafile(dfslice,df_filepath,"CSV") # BROKEN function--Save slice to file--should work whether writing new file or appending to CSV
@@ -735,7 +746,8 @@ def slice_pandify(bigdf, numsplits, df_filepath):
         except Exception as e:
             logging.critical("\nERROR! Script failed to load parsing output into DataFrame slice #" + str(num) + " of " + str(numsplits) + ", for schools #" + str(startnum) + "-" + str(endnum) + ".\n" + str(e))
             print("  ERROR! Script failed to load parsing output into DataFrame slice #" + str(num) + " of " + str(numsplits) + ", for schools #" + str(startnum) + "-" + str(endnum) + ".", str(e))
-            sys.exit()
+            #sys.exit()
+            continue
             
     return
             
@@ -779,31 +791,33 @@ del dicts_list # Free memory"""
 
         
 # Create DF from dicts_list or from file in which to store the data:
-schooldf = pd.DataFrame() # initialize DataFrame to hold school data
+#schooldf = pd.DataFrame() # initialize DataFrame to hold school data
 #schooldf = pd.DataFrame(dicts_list) # Convert dicts_list into a DataFrame
 #schooldf = pd.read_csv(temp_dir+"school_dicts_temp.csv") # Use existing file while debugging pandify_webtext()
-schooldf = pd.read_csv(data_loc, encoding = "Latin1", low_memory=False) # Create DF from source file
+#schooldf = schooldf[schooldf.ADDRESS14 != 'ADDRESS14'] # Clean out any cases of header being written as row
+#schooldf = convert_df(schooldf) # Make this DF memory-efficient by converting appropriate columns to category data type
 
-schooldf = schooldf[schooldf.ADDRESS14 != 'ADDRESS14'] # Clean out any cases of header being written as row
-schooldf = convert_df(schooldf) # Make this DF memory-efficient by converting appropriate columns to category data type
-    
-numschools = int(len(schooldf)) # Count number of schools in list of dictionaries
+with open(data_loc, "r"): # Limits memory drain
+    numschools = int(len(pd.read_csv(data_loc, encoding = "Latin1", sep="\t"))) # Count number of schools in file
+splits = numschools # Number of times to slice up the big CSV
+
+schooldf_iter = pd.read_csv(data_loc, encoding = "Latin1", low_memory=False, iterator=True, chunksize=splits) # Create DF from source file
+
 tqdm.pandas(desc="Loading webtext->DF") # To show progress, create & register new `tqdm` instance with `pandas`
 
 # Load parsing output into big pandas DataFrame through slices (to work with limited system memory):
-splits = 6752
 merged_df_file = temp_dir+"mergedf_"+str(datetime.today().strftime("%Y-%m-%d"))+".csv" # Prepare file name
-slice_pandify(schooldf, splits, merged_df_file)
+slice_pandify(schooldf_iter, splits, merged_df_file)
 print("Larger DF successfully split into " + str(splits) + " smaller DFs, parsed, combined, and saved to file!")
 
-if schooldf is not None:
+'''if schooldf is not None:
     del schooldf # Free memory
 else:
-    pass
+    pass'''
     
 # Save final output:
 print("\nSCHOOL PARSING COMPLETE!!!")
-schooldf = pd.read_csv(merged_df_file, sep="\t", header=0, low_memory=False, encoding="utf-8") # Load full DF so we can save it in analysis-ready format    #,header=198
-schooldf = schooldf[schooldf.ADDRESS14 != 'ADDRESS14'] # Clean out any bad rows--where header is written as row
-newfile = "charters_parsed_" + str(datetime.today().strftime("%Y-%m-%d"))
-save_datafile(schooldf, save_dir+newfile, "csv")
+#schooldf = pd.read_csv(merged_df_file, sep="\t", header=0, low_memory=False, encoding="utf-8") # Load full DF so we can save it in analysis-ready format    #,header=198
+#schooldf = schooldf[schooldf.ADDRESS14 != 'ADDRESS14'] # Clean out any bad rows--where header is written as row
+#newfile = "charters_parsed_" + str(datetime.today().strftime("%Y-%m-%d"))
+#save_datafile(schooldf, save_dir+newfile, "csv")

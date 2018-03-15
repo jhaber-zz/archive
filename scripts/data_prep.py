@@ -79,6 +79,8 @@ else:
     save_dir = dir_prefix + "Charter-school-identities/data/" # Directory in which to save data files
     temp_dir = dir_prefix + "Charter-school-identities/data/temp/" # Directory in which to save temporary data files
     
+data_year = int(2014)
+    
 # Set logging options
 log_file = temp_dir + "logfile_" + str(datetime.today()) + ".log"
 logging.basicConfig(filename=log_file,level=logging.INFO)
@@ -628,9 +630,9 @@ def pandify_webtext(df):
     
     # Initialize text strings and counts as empty, then convert data types:
     empty = ["" for elem in range(len(df["NCESSCH"]))] # Create empty string column length of longest variable (NCESCCH used for matching)
-    df = df.assign(WEBTEXT=empty, KEYWORDS_TEXT=empty, IDEOLOGY_TEXT=empty, ESS_COUNT=empty, PROG_COUNT=empty, RIT_COUNT=empty, folder_name=empty, TOTETH=empty, PCTETH=empty) # Add empty columns to df
-    df.reindex[:,["WEBTEXT", "KEYWORDS_TEXT", "IDEOLOGY_TEXT", "folder_name"]] = df.loc[:,["WEBTEXT", "KEYWORDS_TEXT", "IDEOLOGY_TEXT", "folder_name"]].apply(lambda x: x.astype(object)) # Convert to object type--holds text
-    df.reindex[:,["ESS_COUNT", "PROG_COUNT", "RIT_COUNT","TOTETH","PCTETH"]] = df.loc[:,["ESS_COUNT", "PROG_COUNT", "rit_count","TOTETH","PCTETH"]].apply(pd.to_numeric, downcast="unsigned") # Convert to int dtype--holds positive numbers (no decimals)
+    df = df.assign(FOLDER_NAME=empty, TOTETH=empty, PCTETH=empty, AGE=empty, PCTFRL=empty, PLACE=empty, WEBTEXT=empty, KEYWORDS_TEXT=empty, IDEOLOGY_TEXT=empty, ESS_COUNT=empty, PROG_COUNT=empty, RIT_COUNT=empty, ESS_STRENGTH=empty, PROG_STRENGTH=empty) # Add empty columns to df
+    df.loc[:,["PLACE", "WEBTEXT", "KEYWORDS_TEXT", "IDEOLOGY_TEXT", "FOLDER_NAME"]] = df.loc[:,["PLACE", "WEBTEXT", "KEYWORDS_TEXT", "IDEOLOGY_TEXT", "FOLDER_NAME"]].apply(lambda x: x.astype(object)) # Convert to object type--holds text
+    df.loc[:,["AGE", "PCTFRL", "TOTETH", "PCTETH", "ESS_COUNT", "PROG_COUNT", "RIT_COUNT", "ESS_STRENGTH", "PROG_STRENGTH"]] = df.loc[:,["AGE", "PCTFRL", "TOTETH", "PCTETH", "ESS_COUNT", "PROG_COUNT", "RIT_COUNT", "ESS_STRENGTH", "PROG_STRENGTH"]].apply(pd.to_numeric, downcast="unsigned") # Convert to int dtype--holds positive numbers (no decimals)
     
     df.loc[:,"FOLDER_NAME"] = df.loc[:,[NAME_var,ADDR_var]].apply(lambda x: re.sub(" ","_","{} {}".format(str(x[0]),str(x[1][-8:-6]))), axis=1) # This gives name and state separated by "_"
     df.loc[:,"school_folder"] = df.loc[:,"FOLDER_NAME"].apply(lambda x: str(datalocation) + '{}/'.format(str(x)))
@@ -641,8 +643,13 @@ def pandify_webtext(df):
         # Compute demographic variables:
         df["TOTETH"] = df[["AM", "AS", "BL", "HI", "HP", "TR"]].apply(sum, axis=1) # Number of nonwhite K-12 students
         df["PCTETH"] = df["TOTETH"]/df["MEMBER"] # Percent nonwhite K-12 students
-        # df["AGE"] = data_year - df["YEAR_OPENED"] # TO DO: GET THIS TO WORK
-        #df["LOCALE"] = df["LOCALE"].map() # TO DO: inspect & recode this variable
+        df["PCTFRL"] = df["TOTFRL"]/df["MEMBER"] # Percent receiving free/ reduced-price lunch
+        df["AGE"] = data_year - df["YEAR_OPENED"] # Number of years school has been open
+        
+        # Recode variables:
+        df["PLACE"] = df["LOCALE"].map({11.0:"City", 12.0:"City", 13.0:"City", 21.0:"Suburb", 22.0:"Suburb", 23.0:"Suburb", 31.0:"Town", 32.0:"Town", 33.0:"Town", 41.0:"Rural", 42.0:"Rural", 43.0:"Rural"}).astype('category')
+        df["LOCALE"] = df["LOCALE"].map({11.0:"City (large)", 12.0:"City (midsize)", 13.0:"City (small)", 21.0:"Suburb (large)", 22.0:"Suburb (midsize)", 23.0:"Suburb (small)", 31.0:"Town (fringe)", 32.0:"Town (distant)", 33.0:"Town (remote)", 41.0:"Rural (fringe)", 42.0:"Rural (distant)", 43.0:"Rural (remote)"}).astype('category')
+        df["TITLEI"] = df["TITLEI"].map({"Yes":1, "No":0}).astype(category)
         
         # load error_file as a list with four pieces, the last element of each of which is the flag value itself:
         df.loc[:,"error_text"] = df.loc[:,"error_file"].apply(lambda x: load_list('{}'.format(str(x))))
@@ -656,8 +663,8 @@ def pandify_webtext(df):
         logging.info("Loading webtext from disk into DF...")
         
         # Load school parse output from disk into DataFrame:
-        df.loc[downloaded,"WEBTEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}webtext.txt".format(str(x)))) # df["wget_fail_flag"]==False
-        df.loc[downloaded,"KEYWORDS_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}keywords_text.txt".format(str(x))))
+        #df.loc[downloaded,"WEBTEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}webtext.txt".format(str(x)))) # df["wget_fail_flag"]==False
+        #df.loc[downloaded,"KEYWORDS_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}keywords_text.txt".format(str(x))))
         df.loc[downloaded,"IDEOLOGY_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}ideology_text.txt".format(str(x))))
         
         df["counts_text"] = df.counts_file.apply(lambda x: load_list("{}".format(str(x))))
@@ -668,7 +675,7 @@ def pandify_webtext(df):
         df.loc[downloaded,"PROG_STRENGTH"] = (df.loc[downloaded,"PROG_COUNT"]/df.loc[downloaded, "RIT_COUNT"]).apply(pd.to_numeric, downcast='float') 
         #logging.info(str(df.loc[downloaded,'prog_strength']))
         
-        df = df.drop(["school_folder","error_text","error_file","counts_text"],axis=1) # Clean up temp variables
+        df = df.drop(["school_folder","error_text","error_file","counts_text", "AM", "AS", "BL", "HI", "HP"],axis=1) # Clean up temp variables
         
         logging.info("LOADED " + df["html_file_count"].sum() + " .html files into DataFrame!")
         #save_datafile(df, save_dir+"df_parser_temp", "pickle") # Save output so we can pick up where left off, in case something breaks before able to save final output
@@ -714,8 +721,8 @@ def slice_pandify(bigdf_iter, numsplits, df_filepath):
                 pass
             elif num==20:
                 dfslice = pandify_webtext(dfslice) # Load parsed output into the DF
-                logging.info(dfslice[["SCH_NAME", "folder_name", "html_file_count"]])
-                print(dfslice[["SCH_NAME", "folder_name", "html_file_count"]])
+                logging.info(dfslice[["SCH_NAME", "FOLDER_NAME", "html_file_count"]])
+                print(dfslice[["SCH_NAME", "FOLDER_NAME", "html_file_count"]])
                 sys.exit()
             else:
                 dfslice = pandify_webtext(dfslice) # Load parsed output into the DF
@@ -725,15 +732,15 @@ def slice_pandify(bigdf_iter, numsplits, df_filepath):
                 logging.info("Slice #" + str(num) + " saved to " + df_filepath + "!")'''
                 
             dfslice = pandify_webtext(dfslice) # Load parsed output into the DF
-            logging.info(dfslice[["folder_name", "html_file_count"]])
+            logging.info(dfslice[["FOLDER_NAME", "html_file_count"]])
             logging.info("Slice #" + str(num) + " loaded! Saving file...")
             
             if num==0: # Save first slice to new file (overwriting if needed)
                 dfslice.to_csv(df_filepath, mode="w", index=False, header=dfslice.columns.values, sep="\t", encoding="utf-8")
             #elif num==1:
             #    sys.exit()
-            #elif num==(284 or 441 or 593 or 594 or 595 or 596 or 1159 or 1218 or 1219 or 1271 or 1297 or 1303 or 1667 or 1861 or 3361 or 4467 or 4836 or 4871 or 4910 or 5418): # or num==441 or num==593: # Skip Primavera_-_Online_AZ', which is slice #284 if numsplits = 6752
-            #    continue # Move on to next slice
+            elif num==(284 or 441 or 593 or 594 or 595 or 596 or 1159 or 1218 or 1219 or 1271 or 1297 or 1303 or 1667 or 1861 or 3361 or 4467 or 4836 or 4871 or 4910 or 5418): # or num==441 or num==593: # Skip Primavera_-_Online_AZ', which is slice #284 if numsplits = 6752
+                continue # Move on to next slice
             # TO DO: Clean out excess HTML (e.g., blog posts) in wget downloads for these schools
             else: # Append next slice to existing file
                 dfslice.to_csv(df_filepath, mode="a", index=False, header=False, sep="\t", encoding="utf-8")
@@ -801,7 +808,7 @@ with open(data_loc, "r"): # Limits memory drain
     numschools = int(len(pd.read_csv(data_loc, encoding = "Latin1", sep="\t"))) # Count number of schools in file
 splits = numschools # Number of times to slice up the big CSV
 
-schooldf_iter = pd.read_csv(data_loc, encoding = "Latin1", low_memory=False, iterator=True, chunksize=splits) # Create DF from source file
+schooldf_iter = pd.read_csv(data_loc, encoding = "Latin1", low_memory=False, iterator=True, chunksize=splits, na_values={"TITLEI":["M","N"]}) # Create DF from source file
 
 tqdm.pandas(desc="Loading webtext->DF") # To show progress, create & register new `tqdm` instance with `pandas`
 

@@ -649,7 +649,7 @@ def pandify_webtext(df):
         # Recode variables:
         df["PLACE"] = df["LOCALE"].map({11.0:"City", 12.0:"City", 13.0:"City", 21.0:"Suburb", 22.0:"Suburb", 23.0:"Suburb", 31.0:"Town", 32.0:"Town", 33.0:"Town", 41.0:"Rural", 42.0:"Rural", 43.0:"Rural"}).astype('category')
         df["LOCALE"] = df["LOCALE"].map({11.0:"City (large)", 12.0:"City (midsize)", 13.0:"City (small)", 21.0:"Suburb (large)", 22.0:"Suburb (midsize)", 23.0:"Suburb (small)", 31.0:"Town (fringe)", 32.0:"Town (distant)", 33.0:"Town (remote)", 41.0:"Rural (fringe)", 42.0:"Rural (distant)", 43.0:"Rural (remote)"}).astype('category')
-        df["TITLEI"] = df["TITLEI"].map({"Yes":1, "No":0}).astype(category)
+        df["TITLEI"] = df["TITLEI"].map({"Yes":1, "No":0}).astype('category')
         
         # load error_file as a list with four pieces, the last element of each of which is the flag value itself:
         df.loc[:,"error_text"] = df.loc[:,"error_file"].apply(lambda x: load_list('{}'.format(str(x))))

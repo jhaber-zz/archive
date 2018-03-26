@@ -1,4 +1,15 @@
 ---
+# run this script as: `sudo ansible-playbook jetstream-playbook.yaml`
+# run this first: `sudo ansible-galaxy install cmprescott.chrome`
+
+# TO DO: have this script add the following lines to /etc/sudoers.d/90-cloud-init-users
+#jhaber ALL=(ALL) NOPASSWD:ALL
+#bradafza ALL=(ALL) NOPASSWD:ALL
+#sujaksh ALL=(ALL) NOPASSWD:ALL
+#arjuns ALL=(ALL) NOPASSWD:ALL
+#harshayu ALL=(ALL) NOPASSWD:ALL
+#maxyuan ALL=(ALL) NOPASSWD:ALL
+
 - hosts: localhost
   roles:
      - { role: cmprescott.chrome, become: yes }
@@ -34,15 +45,15 @@
         groups: users,admin,docker
         shell: /bin/bash
     - user:
-        name: maxyuan
+        name: aculich
         uid: 1005
-        comment: "Max Yuan"
+        comment: "Aaron Culich"
         groups: users,admin,docker
         shell: /bin/bash
     - user:
-        name: aculich
+        name: maxyuan
         uid: 1006
-        comment: "Aaron Culich"
+        comment: "MaxYuan"
         groups: users,admin,docker
         shell: /bin/bash
 

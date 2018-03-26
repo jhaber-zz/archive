@@ -18,7 +18,7 @@ pip install docker-compose
 pip install bs4
 pip install lxml
 pip install google
-pip install googleplaces
+pip install https://github.com/slimkrazy/python-google-places/zipball/master
 pip install selenium
 
 # Processing text:

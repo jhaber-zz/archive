@@ -3,21 +3,25 @@
 
 
 # # Google search using Python
-# 
-# ### Description and external resources:
-# 
-# > This script uses two related functions to scrape the best URL from online sources: 
-# >> The Google Places API. See the [GitHub page](https://github.com/slimkrazy/python-google-places) for the Python wrapper and sample code, [Google Web Services](https://developers.google.com/places/web-service/) for general documentation, and [here](https://developers.google.com/places/web-service/details) for details on Place Details requests.
-# 
-# >> The Google Search function (manually filtered). See [here](https://pypi.python.org/pypi/google) for source code and [here](http://pythonhosted.org/google/) for documentation.
-# 
-# > To get an API key for the Google Places API (or Knowledge Graph API), go to the [Google API Console](http://code.google.com/apis/console).
-# > To upgrade your quota limits, sign up for billing--it's free and raises your daily request quota from 1K to 150K (!!).
-# 
-# > The code below doesn't use Google's Knowledge Graph (KG) Search API because this turns out NOT to reveal websites related to search results (despite these being displayed in the KG cards visible at right in a standard Google search). The KG API is only useful for scraping KG id, description, name, and other basic/ irrelevant info. TO see examples of how the KG API constructs a search URL, etc., (see [here](http://searchengineland.com/cool-tricks-hack-googles-knowledge-graph-results-featuring-donald-trump-268231)).
-# 
-# > Possibly useful note on debugging: An issue causing the GooglePlaces package to unnecessarily give a "ValueError" and stop was resolved in [July 2017](https://github.com/slimkrazy/python-google-places/issues/59).
-# > Other instances of this error may occur if Google Places API cannot identify a location as given. Dealing with this is a matter of proper Exception handling (which seems to be working fine below).
+
+"""This script uses two related functions to scrape the best URL from online sources: 
+
+1. The Google Places API. See the [GitHub page](https://github.com/slimkrazy/python-google-places) for the Python wrapper and sample code, [Google Web Services](https://developers.google.com/places/web-service/) for general documentation, and [here](https://developers.google.com/places/web-service/details) for details on Place Details requests.
+
+2. The Google Search function (manually filtered). See [here](https://pypi.python.org/pypi/google) for source code and [here](http://pythonhosted.org/google/) for documentation.
+
+To get an API key for the Google Places API (or Knowledge Graph API), go to the [Google API Console](http://code.google.com/apis/console).
+
+To upgrade your quota limits, sign up for billing--it's free and raises your daily request quota from 1K to 150K (!!).
+
+The code below doesn't use Google's Knowledge Graph (KG) Search API because this turns out NOT to reveal websites related to search results (despite these being displayed in the KG cards visible at right in a standard Google search). The KG API is only useful for scraping KG id, description, name, and other basic/ irrelevant info. TO see examples of how the KG API constructs a search URL, etc., (see [here](http://searchengineland.com/cool-tricks-hack-googles-knowledge-graph-results-featuring-donald-trump-268231)).
+ 
+Possibly useful note on debugging: An issue causing the GooglePlaces package to unnecessarily give a "ValueError" and stop was resolved in [July 2017](https://github.com/slimkrazy/python-google-places/issues/59).
+
+Other instances of this error may occur if Google Places API cannot identify a location as given. Dealing with this is a matter of proper Exception handling (which seems to be working fine below).
+
+Author: Jaren Haber, PhD Candidate in UC Berkeley Sociology. 
+Date: Summer 2017."""
 
 
 # ## Initializing Python search environment

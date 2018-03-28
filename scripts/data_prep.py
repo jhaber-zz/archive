@@ -81,7 +81,7 @@ else:
 data_year = int(2014)
     
 # Set logging options
-log_file = temp_dir + "logfile_" + str(datetime.today()) + ".log"
+log_file = temp_dir + "data_prep_" + str(datetime.today()) + ".log"
 logging.basicConfig(filename=log_file,level=logging.INFO)
     
     

@@ -2,6 +2,7 @@
 # -*- coding: UTF-8
 
 # # Initializing new VM environment with docker, text analysis tools, etc.
+# RUN THIS SCRIPT AS SUPER-USER, i.e: `sudo bash init_VM.sh`
 
 # Install latest python 3 and pip:
 apt-get install python3
@@ -31,3 +32,10 @@ pip install scipy
 apt install htop # More readable version of top, for process management
 apt install ncdu # Fast, comprehensive disk investigation
 byobu-enable # Make sure window management software is turned on
+
+# Setting up git-LFS:
+curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+apt-get install git-lfs
+git lfs install
+git lfs track "*.csv" # Possibly add other file types here
+rm script.deb.sh

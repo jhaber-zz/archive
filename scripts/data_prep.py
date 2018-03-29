@@ -55,28 +55,20 @@ else:
 example_page = "https://westlakecharter.com/about/"
 example_schoolname = "TWENTY-FIRST_CENTURY_NM"
 
-if workstation and notebook:
-    micro_sample13 = dir_prefix + "data\\micro-sample13_coded.csv" # Random micro-sample of 300 US charter schools
-    URL_schooldata = dir_prefix + "data\\charter_URLs_2014.csv" # 2014 population of 6,973 US charter schools
-    full_schooldata = dir_prefix + "data\\charter_merged_2014.csv" # Above merged with PVI, EdFacts, year opened/closed
-    temp_data = dir_prefix + "data\\school_parser_temp.json" # Full_schooldata dict with output for some schools
-    example_file = dir_prefix + "data\\example_file.html" #example_folder + "21stcenturypa.com/wp/default?page_id=27.tmp.html"
-    dicts_dir = dir_prefix + "dicts\\" # Directory in which to find & save dictionary files
-    save_dir = dir_prefix + "data\\" # Directory in which to save data files
-    temp_dir = dir_prefix + "data\\temp\\" # Directory in which to save temporary data files
+save_dir = dir_prefix + "data" + os.sep # Directory in which to save data files
+dicts_dir = dir_prefix + "dicts" + os.sep # Directory in which to find & save dictionary files
+temp_dir = save_dir + "temp" + os.sep # Directory in which to save temporary data files
 
-else:
+micro_sample13 = save_dir + "micro-sample13_coded.csv" # Random micro-sample of 300 US charter schools
+URL_schooldata = save_dir + "charter_URLs_2014.csv" # 2014 population of 6,973 US charter schools
+full_schooldata = save_dir + "charter_merged_2014.csv" # Above merged with PVI, EdFacts, year opened/closed
+temp_data = save_dir + "school_parser_temp.json" # Full_schooldata dict with output for some schools
+example_file = save_dir + "example_file.html" #example_folder + "21stcenturypa.com/wp/default?page_id=27.tmp.html"
+
+if not workstation and not notebook:
     wget_dataloc = dir_prefix + "wget/parll_wget/" #data location for schools downloaded with wget in parallel (requires server access)
     example_folder = wget_dataloc + "TWENTY-FIRST_CENTURY_NM/" # Random charter school folder
     example_file = dir_prefix + "wget/example_file.html" #example_folder + "21stcenturypa.com/wp/default?page_id=27.tmp.html"
-
-    micro_sample13 = dir_prefix + "Charter-school-identities/data/micro-sample13_coded.csv" #data location for random micro-sample of 300 US charter schools
-    URL_schooldata = dir_prefix + "Charter-school-identities/data/charter_URLs_2014.csv" #data location for 2014 population of US charter schools
-    full_schooldata = dir_prefix + "Charter-school-identities/data/charter_merged_2014.csv" # Above merged with PVI, EdFacts, year opened/closed
-    temp_data = dir_prefix + "Charter-school-identities/data/school_parser_temp.json" # Full_schooldata dict with output for some schools
-    dicts_dir = dir_prefix + "Charter-school-identities/dicts/" # Directory in which to find & save dictionary files
-    save_dir = dir_prefix + "Charter-school-identities/data/" # Directory in which to save data files
-    temp_dir = dir_prefix + "Charter-school-identities/data/temp/" # Directory in which to save temporary data files
     
 data_year = int(2014)
     
@@ -628,10 +620,10 @@ def pandify_webtext(df):
     #logging.info("Loading into DataFrame parsing output for " + str(len(df)) + " school websites out of a total of " + str(numschools) + "...")
     
     # Initialize text strings and counts as empty, then convert data types:
-    empty = ["" for elem in range(len(df["NCESSCH"]))] # Create empty string column length of longest variable (NCESCCH used for matching)
-    df = df.assign(FOLDER_NAME=empty, TOTETH=empty, PCTETH=empty, AGE=empty, PCTFRL=empty, PLACE=empty, WEBTEXT=empty, KEYWORDS_TEXT=empty, IDEOLOGY_TEXT=empty, ESS_COUNT=empty, PROG_COUNT=empty, RIT_COUNT=empty, ESS_STRENGTH=empty, PROG_STRENGTH=empty) # Add empty columns to df
+    empty = ["" for elem in range(len(df["NCESSCH"]))] # Create empty string column that is as long as the longest variable (NCESCCH used for matching)
+    df = df.assign(word_count=empty, chunk_count=empty, FOLDER_NAME=empty, TOTETH=empty, PCTETH=empty, AGE=empty, PCTFRL=empty, PLACE=empty, WEBTEXT=empty, KEYWORDS_TEXT=empty, IDEOLOGY_TEXT=empty, ESS_COUNT=empty, PROG_COUNT=empty, RIT_COUNT=empty, ESS_STRENGTH=empty, PROG_STRENGTH=empty) # Add empty columns to df
     df.loc[:,["PLACE", "WEBTEXT", "KEYWORDS_TEXT", "IDEOLOGY_TEXT", "FOLDER_NAME"]] = df.loc[:,["PLACE", "WEBTEXT", "KEYWORDS_TEXT", "IDEOLOGY_TEXT", "FOLDER_NAME"]].apply(lambda x: x.astype(object)) # Convert to object type--holds text
-    df.loc[:,["AGE", "PCTFRL", "TOTETH", "PCTETH", "ESS_COUNT", "PROG_COUNT", "RIT_COUNT", "ESS_STRENGTH", "PROG_STRENGTH"]] = df.loc[:,["AGE", "PCTFRL", "TOTETH", "PCTETH", "ESS_COUNT", "PROG_COUNT", "RIT_COUNT", "ESS_STRENGTH", "PROG_STRENGTH"]].apply(pd.to_numeric, downcast="unsigned") # Convert to int dtype--holds positive numbers (no decimals)
+    df.loc[:,["word_count", "chunk_count", "AGE", "PCTFRL", "TOTETH", "PCTETH", "ESS_COUNT", "PROG_COUNT", "RIT_COUNT", "ESS_STRENGTH", "PROG_STRENGTH"]] = df.loc[:,["word_count", "chunk_count", "AGE", "PCTFRL", "TOTETH", "PCTETH", "ESS_COUNT", "PROG_COUNT", "RIT_COUNT", "ESS_STRENGTH", "PROG_STRENGTH"]].apply(pd.to_numeric, downcast="unsigned") # Convert to int dtype--holds positive numbers (no decimals)
     
     df.loc[:,"FOLDER_NAME"] = df.loc[:,[NAME_var,ADDR_var]].apply(lambda x: re.sub(" ","_","{} {}".format(str(x[0]),str(x[1][-8:-6]))), axis=1) # This gives name and state separated by "_"
     df.loc[:,"school_folder"] = df.loc[:,"FOLDER_NAME"].apply(lambda x: str(datalocation) + '{}/'.format(str(x)))
@@ -655,15 +647,17 @@ def pandify_webtext(df):
         df.loc[:,"duplicate_flag"] = df.loc[:,"error_text"].apply(lambda x: '{}'.format(str(x[0].split()[-1]))) #  # last element of first piece of error_text
         df.loc[:,"parse_error_flag"] = df.loc[:,"error_text"].apply(lambda x: '{}'.format(str(x[1].split()[-1]))) 
         df.loc[:,"wget_fail_flag"] = df.loc[:,"error_text"].apply(lambda x: '{}'.format(str(x[2].split()[-1]))) 
-        df.loc[:,"html_file_count"] = df.loc[:,"error_text"].apply(lambda x: '{}'.format(str(x[3].split()[-1]))) 
+        df.loc[:,"html_file_count"] = df.loc[:,"error_text"].apply(lambda x: '{}'.format(str(x[3].split()[-1])))
         
         downloaded = df["wget_fail_flag"].map({"1":True,1:True,"0":False,0:False}) == False # This binary conditional filters df to only those rows with downloaded web content--where wget_fail_flag==False and thus does NOT signal download failure
         
         logging.info("Loading webtext from disk into DF...")
         
         # Load school parse output from disk into DataFrame:
-        #df.loc[downloaded,"WEBTEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}webtext.txt".format(str(x)))) # df["wget_fail_flag"]==False
-        #df.loc[downloaded,"KEYWORDS_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}keywords_text.txt".format(str(x))))
+        df.loc[downloaded,"WEBTEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}webtext.txt".format(str(x)))) # df["wget_fail_flag"]==False
+        df.loc[downloaded,"word_count"] = df.loc[downloaded, "WEBTEXT"].apply(lambda x: sum(map(len, map(nltk.word_tokenize, x))))
+        df.loc[downloaded,"chunk_count"] = df.loc[downloaded, "WEBTEXT"].apply(lambda x: len(x))
+        df.loc[downloaded,"KEYWORDS_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}keywords_text.txt".format(str(x))))
         df.loc[downloaded,"IDEOLOGY_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}ideology_text.txt".format(str(x))))
         
         df["counts_text"] = df.counts_file.apply(lambda x: load_list("{}".format(str(x))))

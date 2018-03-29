@@ -415,7 +415,9 @@ keys_tuple = tuple([mission_keywords,curriculum_keywords,philosophy_keywords,his
                         all_ideol,all_keywords])
 dicts_tuple = tuple([ess_dict,prog_dict,rit_dict,all_dicts])
     
+logging.info("The contents of keys_tuple:")
 logging.info(str(list(keys_tuple)))
+logging.info("The contents of dicts_tuple:")
 logging.info(str(list(dicts_tuple)))
 
     
@@ -538,6 +540,9 @@ def parse_file_helper(file,webtext,keywords_text,ideology_text):
         webtext.extend(parsed_pagetext) # Add new parsed text to long list
         keywords_text.extend(filter_dict_page(parsed_pagetext, all_keywords)) # Filter using keywords
         ideology_text.extend(filter_dict_page(parsed_pagetext, all_ideol)) # Filter using ideology words
+        mission.extend(filter_dict_page(parsed_pagetext,mission_keywords) # Filter using mission keywords
+        # TO DO: Extend this!
+        ,curriculum,philosophy,history,about,ideology,keywords
 
         logging.info("Successfully parsed and filtered file " + str(file) + "...")
         
@@ -641,6 +646,7 @@ def parse_school(schooltup):
     # Now link together dict terms lists with variables holding their matches and their not-matches:
     keysnames_tupzip = zip(keys_tuple, titles_list) # zips together keyword lists with the variables holding their matches
     #dictsnames_tuplist = zip(dicts_tuple, dictsnames_list, dictlessnames_list)
+    keysnames_biglist = [[keys_tuple[i],keysnames_list[i]] for i in range(len(key_tuple))] # TO DO: Check this!
     dictsnames_biglist = [[dicts_tuple[i],dictsnames_list[i],dictlessnames_list[i]] for i in range(len(dicts_tuple))]
 
     logging.info(str(list(keysnames_tupzip)))
@@ -670,6 +676,7 @@ def parse_school(schooltup):
             # Parse and categorize page text:
             try:                    
                 webtext,keywords_text,ideology_text = parse_file_helper(file, webtext, keywords_text, ideology_text)
+                mission,curriculum,philosophy,history,about,ideology,keywords # TO DO: Read these in somehow!
                         
                 file_count+=1 # add to count of parsed files
 

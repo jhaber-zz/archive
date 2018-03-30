@@ -411,9 +411,8 @@ logging.info("First 10 elements of combined ideology dictionary are:\n" + str(li
     
 
 # Create tuples for keyword lists and dictionary terms:
-keys_tuple = tuple([mission_keywords,curriculum_keywords,philosophy_keywords,history_keywords,about_keywords,\
-                        all_ideol,all_keywords])
-dicts_tuple = tuple([ess_dict,prog_dict,rit_dict,all_dicts])
+keys_tuple = tuple([mission_keywords,curriculum_keywords,philosophy_keywords,history_keywords,about_keywords,all_keywords])
+dicts_tuple = tuple([ess_dict,prog_dict,rit_dict,all_ideol,all_dicts])
     
 logging.info("The contents of keys_tuple:")
 logging.info(str(list(keys_tuple)))
@@ -477,25 +476,25 @@ def dict_match_len(phrase, custom_dict, length):
 
                   
 @timeout_decorator.timeout(20, use_signals=False)
-def dictmatch_file_helper(file,dictsnames_biglist,all_keywords,all_ideol,all_matches):
+def dictmatch_file_helper(file, listlists, all_matches):
     """Counts number of matches in file for each list of terms given, and also collects the terms not matched.
-    Dictsnames_biglist is a list of lists, each list containing:
-    a list of key terms, currently essentialism, progressivism, ritualism, and all three combined (ess_dict, prog_dict, rit_dict, all_dicts);
-    the variables used to store the number of matches for each term lit (ess_count, prog_count, rit_count, alldict_count);
-    and the not-matches--that is, the list of words leftover from the file after all matches are removed (ess_dictless, prog_dictless, rit_dictless, alldict_dictless). """
+    listlists is a list of lists, each list containing:
+    a list of key terms--e.g., for dictsnames_biglist, currently essentialism, progressivism, ritualism, and all three combined (ess_dict, prog_dict, rit_dict, all_dicts);
+    the variables used to store the number of matches for each term lit (e.g., ess_count, prog_count, rit_count, alldict_count); 
+    and the not-matches--that is, the list of words leftover from the file after all matches are removed (e.g., ess_dictless, prog_dictless, rit_dictless, alldict_dictless). """         
     
-                  
     for i in range(len(dictsnames_biglist)): # Iterate over dicts to find matches with parsed text of file
-        # Dicts are: (ess_dict, prog_dict, rit_dict, alldict_count); count_names are: (ess_count, prog_count, rit_count, alldict_count); dictless_names are: (ess_dictless, prog_dictless, rit_dictless, alldict_dictless)
+        # For dictsnames_list, dicts are: (ess_dict, prog_dict, rit_dict, alldict_count); count_names are: (ess_count, prog_count, rit_count, alldict_count); dictless_names are: (ess_dictless, prog_dictless, rit_dictless, alldict_dictless)
         # adict,count_name,dictless_name = dictsnames_tupzip[i]
-        dictless_add,count_add = dict_count(parsed_pagetext,dictsnames_biglist[i][0])
-        dictsnames_biglist[i][1] += count_add
-        dictsnames_biglist[i][2] += dictless_add
+        dictless_add,count_add = dict_count(parsed_pagetext,listlists[i][0])
+        listlists[i][1] += count_add
+        listlists[i][2] += dictless_add
         all_matches += count_add
-                    
-        logging.info("Discovered " + str(count_add) + " matches for " + str(file) + ", a total thus far of " + str(dictsnames_biglist[i][1]) + " matches...")
+        
+        logging.info("Discovered " + str(count_add) + " matches for " + str(file) + \
+                     ", a total thus far of " + str(all_matches) + " matches...")
                   
-    return dictsnames_biglist,all_matches
+    return listlists,all_matches
                   
 
 # ### Define parsing helper functions
@@ -537,12 +536,15 @@ def parse_file_helper(file,webtext,keywords_text,ideology_text):
         logging.warning("    Nothing to parse in " + str(file) + "!")
     
     else:
-        webtext.extend(parsed_pagetext) # Add new parsed text to long list
+        # Filter parsed text and add to appropriate variables usng `.extend`:
+        webtext.extend(parsed_pagetext) # Add to long list (no filter)
         keywords_text.extend(filter_dict_page(parsed_pagetext, all_keywords)) # Filter using keywords
         ideology_text.extend(filter_dict_page(parsed_pagetext, all_ideol)) # Filter using ideology words
-        mission.extend(filter_dict_page(parsed_pagetext,mission_keywords) # Filter using mission keywords
-        # TO DO: Extend this!
-        ,curriculum,philosophy,history,about,ideology,keywords
+        mission.extend(filter_dict_page(parsed_pagetext,mission_keywords)) # Filter using mission keywords
+        curriculum.extend(filter_dict_page(parsed_pagetext,curriculum_keywords)) # Filter using curriculum keywords
+        philosophy.extend(filter_dict_page(parsed_pagetext,philosophy_keywords)) # Filter using philosophy keywords
+        history.extend(filter_dict_page(parsed_pagetext,history_keywords)) # Filter using history keywords
+        about.extend(filter_dict_page(parsed_pagetext,about_keywords)) # Filter using general/'about' keywords
 
         logging.info("Successfully parsed and filtered file " + str(file) + "...")
         
@@ -639,17 +641,22 @@ def parse_school(schooltup):
     ess_dictless, prog_dictless, rit_dictless, alldict_dictless = [],[],[],[] # lists of unmatched words. Why?
     # Later we can revise the dictionaries by looking at what content words were not counted by current dictionaries. 
 
-    titles_list = [mission,curriculum,philosophy,history,about,ideology,keywords] # list of matched keyword lists
-    dictsnames_list = [ess_count, prog_count, rit_count, alldict_count] # list of dict match counts
-    dictlessnames_list = [ess_dictless, prog_dictless, rit_dictless, alldict_dictless] # list of unmatched word lists
+    keysnames_list = [mission,curriculum,philosophy,history,about,keywords] # list of keywords to match
+    keylessnames_list = [mission_dictless,curriculum_dictless,philosophy_dictless,history_dictless,about_dictless,keywords_dictless] # list of terms not matched to each list of keywords
+    dictsnames_list = [ess_count, prog_count, rit_count, allideol_count, alldict_count] # list of dicts to match
+    dictlessnames_list = [ess_dictless, prog_dictless, rit_dictless, allideol_dictless, alldict_dictless] # list of terms not matched to each list of dicts
 
-    # Now link together dict terms lists with variables holding their matches and their not-matches:
-    keysnames_tupzip = zip(keys_tuple, titles_list) # zips together keyword lists with the variables holding their matches
+    ''' Reminder/ FYI of what's in these global tuples of lists:
+    keys_tuple = tuple([mission_keywords, curriculum_keywords, philosophy_keywords, history_keywords, about_keywords, all_keywords])
+    dicts_tuple = tuple([ess_dict,prog_dict,rit_dict,all_ideol,all_dicts])'''
+    
+    # Now link together dict terms lists with variables holding their matches (and if applicable, their not-matches):
+    #keysnames_tupzip = zip(keys_tuple, titles_list) # zips together keyword lists with the variables holding their matches
     #dictsnames_tuplist = zip(dicts_tuple, dictsnames_list, dictlessnames_list)
-    keysnames_biglist = [[keys_tuple[i],keysnames_list[i]] for i in range(len(key_tuple))] # TO DO: Check this!
-    dictsnames_biglist = [[dicts_tuple[i],dictsnames_list[i],dictlessnames_list[i]] for i in range(len(dicts_tuple))]
+    keysnames_biglist = [[keys_tuple[i],keysnames_list[i],keylessnames_list[i]] for i in range(len(keys_tuple))] # big list of lists for dict matching with keywords
+    dictsnames_biglist = [[dicts_tuple[i],dictsnames_list[i],dictlessnames_list[i]] for i in range(len(dicts_tuple))] # big list of lists for matching with ideology dictionaries
 
-    logging.info(str(list(keysnames_tupzip)))
+    logging.info(str(list(keysnames_biglist)))
     logging.info(str(list(dictsnames_biglist)))
     
     # Now to parsing:
@@ -685,13 +692,13 @@ def parse_school(schooltup):
                         
             # Count dict matches:
             try:
-                dictsnames_biglist,all_matches = dictmatch_file_helper(file,dictsnames_biglist, all_keywords, all_ideol, all_matches)
+                dictsnames_biglist, dicts_matches = dictmatch_file_helper(file, dictsnames_biglist, all_matches)
+                keysnames_biglist, keys_matches = dictmatch_file_helper(file, keysnames_biglist, all_matches)
 
             except Exception as e:
                 logging.info("ERROR! Failed to count number of dict matches while parsing " + str(file) + "...\n" + str(e))
                     
         # Report and save output to disk:
-        print("Got here 1")
         parsed.append(school_URL)
         file_count = int(file_count-1)
         print("  PARSED " + str(file_count) + " .html file(s) from website of " + str(school_name) + "...")
@@ -703,12 +710,10 @@ def parse_school(schooltup):
         print("  Found " + str(all_matches) + " total dictionary matches and " + str(len(dictsnames_biglist[3][2])) + " uncounted words for " + str(school_name) + "...")
 
         write_counts(counts_file, ["ess_count","prog_count","rit_count"], [dictsnames_biglist[0][1], dictsnames_biglist[1][1], dictsnames_biglist[2][1]])
-        print("Got here 2")
         write_list(school_folder + "dictless_words.txt", dictsnames_biglist[3][2])
-        print("Got here 3")
                     
         write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
-        print("Got here 4")
+        print("Got to end of parsing script")
 
     except Exception as e:
         logging.error("ERROR! Failed to parse, categorize, and get dict matches on webtext of " + str(school_name) + "...\n" + str(e))

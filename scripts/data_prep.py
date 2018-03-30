@@ -621,9 +621,11 @@ def pandify_webtext(df):
     
     # Initialize text strings and counts as empty, then convert data types:
     empty = ["" for elem in range(len(df["NCESSCH"]))] # Create empty string column that is as long as the longest variable (NCESCCH used for matching)
-    df = df.assign(word_count=empty, chunk_count=empty, FOLDER_NAME=empty, TOTETH=empty, PCTETH=empty, AGE=empty, PCTFRL=empty, PLACE=empty, WEBTEXT=empty, KEYWORDS_TEXT=empty, IDEOLOGY_TEXT=empty, ESS_COUNT=empty, PROG_COUNT=empty, RIT_COUNT=empty, ESS_STRENGTH=empty, PROG_STRENGTH=empty) # Add empty columns to df
+    df = df.assign(word_count=empty, chunk_count=empty, FOLDER_NAME=empty, TOTETH=empty, PCTETH=empty, AGE=empty, PCTFRL=empty, PLACE=empty, WEBTEXT=empty, KEYWORDS_TEXT=empty, IDEOLOGY_TEXT=empty, ESS_COUNT=empty, PROG_COUNT=empty, RIT_COUNT=empty, ESS_STR=empty, PROG_STR=empty, "IDDIFF_STR"=empty, ESS_PCT=empty, PROG_PCT=empty, "IDDIFF_PCT"=empty) # Add empty columns to df
     df.loc[:,["PLACE", "WEBTEXT", "KEYWORDS_TEXT", "IDEOLOGY_TEXT", "FOLDER_NAME"]] = df.loc[:,["PLACE", "WEBTEXT", "KEYWORDS_TEXT", "IDEOLOGY_TEXT", "FOLDER_NAME"]].apply(lambda x: x.astype(object)) # Convert to object type--holds text
-    df.loc[:,["word_count", "chunk_count", "AGE", "PCTFRL", "TOTETH", "PCTETH", "ESS_COUNT", "PROG_COUNT", "RIT_COUNT", "ESS_STRENGTH", "PROG_STRENGTH"]] = df.loc[:,["word_count", "chunk_count", "AGE", "PCTFRL", "TOTETH", "PCTETH", "ESS_COUNT", "PROG_COUNT", "RIT_COUNT", "ESS_STRENGTH", "PROG_STRENGTH"]].apply(pd.to_numeric, downcast="unsigned") # Convert to int dtype--holds positive numbers (no decimals)
+    df.loc[:,["word_count", "chunk_count", "AGE", "TOTETH", "ESS_COUNT", "PROG_COUNT", "RIT_COUNT"]] = df.loc[:,["word_count", "chunk_count", "AGE", "TOTETH", "ESS_COUNT", "PROG_COUNT", "RIT_COUNT"]].apply(pd.to_numeric, downcast="unsigned") # Convert to int dtype--holds positive numbers (no decimals)
+    df.loc[:,["PCTETH", "PCTFRL", "ESS_STRENGTH", "PROG_STRENGTH", "IDDIFF_STR", "ESS_PCT", "PROG_PCT", "IDDIFF_PCT"]] = df.loc[:,["PCTETH", "PCTFRL", "ESS_STRENGTH", "PROG_STRENGTH", "IDDIFF_STR", "ESS_PCT", "PROG_PCT", "IDDIFF_PCT"]].apply(pd.to_numeric, downcast="float") # Use most efficient float type for these vars--hold decimals
+    
     
     df.loc[:,"FOLDER_NAME"] = df.loc[:,[NAME_var,ADDR_var]].apply(lambda x: re.sub(" ","_","{} {}".format(str(x[0]),str(x[1][-8:-6]))), axis=1) # This gives name and state separated by "_"
     df.loc[:,"school_folder"] = df.loc[:,"FOLDER_NAME"].apply(lambda x: str(datalocation) + '{}/'.format(str(x)))
@@ -633,8 +635,8 @@ def pandify_webtext(df):
     try:
         # Compute demographic variables:
         df["TOTETH"] = df[["AM", "AS", "BL", "HI", "HP", "TR"]].apply(sum, axis=1) # Number of nonwhite K-12 students
-        df["PCTETH"] = df["TOTETH"]/df["MEMBER"] # Percent nonwhite K-12 students
-        df["PCTFRL"] = df["TOTFRL"]/df["MEMBER"] # Percent receiving free/ reduced-price lunch
+        df["PCTETH"] = (df["TOTETH"]/df["MEMBER"]).apply(pd.to_numeric, downcast='float')  # Percent nonwhite K-12 students
+        df["PCTFRL"] = (df["TOTFRL"]/df["MEMBER"]).apply(pd.to_numeric, downcast='float')  # Percent receiving free/ reduced-price lunch
         df["AGE"] = data_year - df["YEAR_OPENED"] # Number of years school has been open
         
         # Recode variables:
@@ -664,11 +666,16 @@ def pandify_webtext(df):
         df.loc[downloaded,"ESS_COUNT"] = df.loc[downloaded,"counts_text"].apply(lambda x: "{}".format(str(x[0].split()[-1]))).apply(pd.to_numeric,downcast='unsigned') # 2nd element of 1st row in counts_text: take as uint dtype (no negatives)
         df.loc[downloaded,"PROG_COUNT"] = df.loc[downloaded,"counts_text"].apply(lambda x: "{}".format(str(x[1].split()[-1]))).apply(pd.to_numeric,downcast='unsigned') # 2nd element of 2nd row
         df.loc[downloaded,"RIT_COUNT"] = df.loc[downloaded,"counts_text"].apply(lambda x: "{}".format(str(x[2].split()[-1]))).apply(pd.to_numeric,downcast='unsigned') # 2nd element of 3nd row
-        df.loc[downloaded,"ESS_STRENGTH"] = (df.loc[downloaded,"ESS_COUNT"]/df.loc[downloaded, "RIT_COUNT"]).apply(pd.to_numeric, downcast='float') # calculate ideology ratio, use most memory-efficient float dtype
-        df.loc[downloaded,"PROG_STRENGTH"] = (df.loc[downloaded,"PROG_COUNT"]/df.loc[downloaded, "RIT_COUNT"]).apply(pd.to_numeric, downcast='float') 
+        df.loc[downloaded,"ESS_STR"] = (df.loc[downloaded,"ESS_COUNT"]/df.loc[downloaded, "RIT_COUNT"]).apply(pd.to_numeric, downcast='float') # calculate ideology ratio, use most memory-efficient float dtype
+        df.loc[downloaded,"PROG_STR"] = (df.loc[downloaded,"PROG_COUNT"]/df.loc[downloaded, "RIT_COUNT"]).apply(pd.to_numeric, downcast='float') 
+        df.loc[downloaded,"IDDIFF_STR"] = (df.loc[downloaded,"PROG_STR"] - df.loc[downloaded,"ESS_STR"]).apply(pd.to_numeric, downcast='float') 
+        df.loc[downloaded,"ESS_PCT"] = (df.loc[downloaded,"ESS_COUNT"]/df.loc[downloaded, "word_count"]).apply(pd.to_numeric, downcast='float') # calculate ideology ratio, use most memory-efficient float dtype
+        df.loc[downloaded,"PROG_PCT"] = (df.loc[downloaded,"PROG_COUNT"]/df.loc[downloaded, "word_count"]).apply(pd.to_numeric, downcast='float') 
+        df.loc[downloaded,"IDDIFF_PCT"] = (df.loc[downloaded,"PROG_PCT"] - df.loc[downloaded,"ESS_PCT"]).apply(pd.to_numeric, downcast='float') 
         #logging.info(str(df.loc[downloaded,'prog_strength']))
         
         df = df.drop(["school_folder","error_text","error_file","counts_text", "AM", "AS", "BL", "HI", "HP"],axis=1) # Clean up temp variables
+        df = convert_df(df) # Make this DF as memory-efficient as possible by appropriately converting column dtypes
         
         logging.info("LOADED " + df["html_file_count"].sum() + " .html files into DataFrame!")
         #save_datafile(df, save_dir+"df_parser_temp", "pickle") # Save output so we can pick up where left off, in case something breaks before able to save final output
@@ -697,7 +704,6 @@ def slice_pandify(bigdf_iter, numsplits, df_filepath):
             dfslice = pd.DataFrame()
             dfslice = bigdf_iter.get_chunk(wheresplit) # Get next chunk of rows 
             dfslice = dfslice[dfslice.ADDRESS14 != 'ADDRESS14'] # Clean out any cases of header being written as row
-            dfslice = convert_df(dfslice) # Make this slice memory-efficient by appropriately converting column dtypes
 
             startnum, endnum = wheresplit*int(num),wheresplit*int(num+1)
             #dfslice = bigdf_iter.iloc[startnum:endnum,:]

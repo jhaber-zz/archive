@@ -37,4 +37,4 @@ Preliminary visual showing charter school density by state in 2014:
 
 Another early-stage visual showing charter school philosophy with community income in 2018:
 
-![Charter school philosophy and community income in SF Bay Area, 2018](Charter-school-identities/data/SF_charters_phil_income.png)
+![Charter school philosophy and community income in SF Bay Area 2018](data/SF_charters_phil_income.png)

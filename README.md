@@ -34,4 +34,4 @@ Preliminary visuals showing charter school density by state in 2014 and charter 
 
 ![Charter school density by state 2014](data/charters_map_alpha.png)
 
-![Charter school philosophy and community income in SF Bay Area, 2018](data/SF Bay Area charter school philosophy and ZIP income 2018.png)
+![Charter school philosophy and community income in SF Bay Area, 2018](Charter-school-identities/data/SF Bay Area charter school philosophy and ZIP income 2018.png)

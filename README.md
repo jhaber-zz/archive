@@ -30,10 +30,11 @@ For lots more details on my data and method, see my [April 2017 pre-registration
 
 If you have questions, exciting ideas or comments, or want to congratulate me on something, do email me at jhaber@berkeley.edu. Thanks!
 
-Preliminary visuals showing charter school density by state in 2014 and charter philosophy with community income in 2018:
-
+Preliminary visual showing charter school density by state in 2014:
 
 ![Charter school density by state 2014](data/charters_map_alpha.png)
 
+
+Another early-stage visual showing charter school philosophy with community income in 2018:
 
 ![Charter school philosophy and community income in SF Bay Area, 2018](Charter-school-identities/data/SF_charters_phil_income.png)

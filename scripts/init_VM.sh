@@ -4,9 +4,10 @@
 # # Initializing new VM environment with docker, text analysis tools, etc.
 # RUN THIS SCRIPT AS SUPER-USER, i.e: `sudo bash init_VM.sh`
 
-# Install latest python 3 and pip:
+# Install latest python 3, pip, and easy-install:
 apt-get install python3
 pip install --upgrade pip
+apt-get install python3-pip
 
 # Docker environment:
 #apt-get install docker-machine
@@ -21,12 +22,16 @@ pip install lxml
 pip install google
 pip install https://github.com/slimkrazy/python-google-places/zipball/master
 pip install selenium
+ansible-galaxy install cmprescott.chrome
 
 # Processing text:
-pip install nltk
+pip3 install nltk
+pip3 install pandas
+pip3 install tqdm
 pip install sklearn
 pip install gensim
 pip install scipy
+pip3 install timeout_decorator
 
 # Shell utilities:
 apt install htop # More readable version of top, for process management
@@ -38,4 +43,6 @@ curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.s
 apt-get install git-lfs
 git lfs install
 git lfs track "*.csv" # Possibly add other file types here
-rm script.deb.sh
+
+# Set user permissions with custom playbook:
+ansible-playbook jetstream-playbook.yaml

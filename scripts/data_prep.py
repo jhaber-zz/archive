@@ -48,9 +48,9 @@ inline_tags = ["b", "big", "i", "small", "tt", "abbr", "acronym", "cite", "dfn",
 if workstation and notebook:
     dir_prefix = "C:\\Users\\Jaren\\Documents\\Charter-school-identities\\" # One level further down than the others
 elif notebook:
-    dir_prefix = "/home/jovyan/work/"
+    dir_prefix = "/home/jovyan/work/Charter-school-identities/"
 else:
-    dir_prefix = "/vol_b/data/"
+    dir_prefix = "/vol_b/data/Charter-school-identities/"
 
 example_page = "https://westlakecharter.com/about/"
 example_schoolname = "TWENTY-FIRST_CENTURY_NM"
@@ -621,7 +621,7 @@ def pandify_webtext(df):
     
     # Initialize text strings and counts as empty, then convert data types:
     empty = ["" for elem in range(len(df["NCESSCH"]))] # Create empty string column that is as long as the longest variable (NCESCCH used for matching)
-    df = df.assign(word_count=empty, chunk_count=empty, FOLDER_NAME=empty, TOTETH=empty, PCTETH=empty, AGE=empty, PCTFRL=empty, PLACE=empty, WEBTEXT=empty, KEYWORDS_TEXT=empty, IDEOLOGY_TEXT=empty, ESS_COUNT=empty, PROG_COUNT=empty, RIT_COUNT=empty, ESS_STR=empty, PROG_STR=empty, "IDDIFF_STR"=empty, ESS_PCT=empty, PROG_PCT=empty, "IDDIFF_PCT"=empty) # Add empty columns to df
+    df = df.assign(word_count=empty, chunk_count=empty, FOLDER_NAME=empty, TOTETH=empty, PCTETH=empty, AGE=empty, PCTFRL=empty, PLACE=empty, WEBTEXT=empty, KEYWORDS_TEXT=empty, IDEOLOGY_TEXT=empty, ESS_COUNT=empty, PROG_COUNT=empty, RIT_COUNT=empty, ESS_STR=empty, PROG_STR=empty, IDDIFF_STR=empty, ESS_PCT=empty, PROG_PCT=empty, IDDIFF_PCT=empty) # Add empty columns to df
     df.loc[:,["PLACE", "WEBTEXT", "KEYWORDS_TEXT", "IDEOLOGY_TEXT", "FOLDER_NAME"]] = df.loc[:,["PLACE", "WEBTEXT", "KEYWORDS_TEXT", "IDEOLOGY_TEXT", "FOLDER_NAME"]].apply(lambda x: x.astype(object)) # Convert to object type--holds text
     df.loc[:,["word_count", "chunk_count", "AGE", "TOTETH", "ESS_COUNT", "PROG_COUNT", "RIT_COUNT"]] = df.loc[:,["word_count", "chunk_count", "AGE", "TOTETH", "ESS_COUNT", "PROG_COUNT", "RIT_COUNT"]].apply(pd.to_numeric, downcast="unsigned") # Convert to int dtype--holds positive numbers (no decimals)
     df.loc[:,["PCTETH", "PCTFRL", "ESS_STRENGTH", "PROG_STRENGTH", "IDDIFF_STR", "ESS_PCT", "PROG_PCT", "IDDIFF_PCT"]] = df.loc[:,["PCTETH", "PCTFRL", "ESS_STRENGTH", "PROG_STRENGTH", "IDDIFF_STR", "ESS_PCT", "PROG_PCT", "IDDIFF_PCT"]].apply(pd.to_numeric, downcast="float") # Use most efficient float type for these vars--hold decimals
@@ -698,14 +698,17 @@ def slice_pandify(bigdf_iter, numsplits, df_filepath):
     
     global numschools # Access numschools from within function (this is roughly 7000)
     wheresplit = int(round(float(numschools)/float(numsplits))) # Get number on which to split (e.g., 1000) based on total number of schools data. This splitting number will be used to iterate over numsplits
+    logging.info("Splitting on the number " + str(wheresplit))
     
     for num in tqdm(range(numsplits), desc="Loading " + str(numsplits) + " DF slices"): # Wrap iterator with tqdm to show progress bar
+        startnum, endnum = wheresplit*int(num),wheresplit*int(num+1)
         try:
             dfslice = pd.DataFrame()
             dfslice = bigdf_iter.get_chunk(wheresplit) # Get next chunk of rows 
+            logging.info(str(dfslice.keys()))
+            logging.info(str(dfslice.info()))
             dfslice = dfslice[dfslice.ADDRESS14 != 'ADDRESS14'] # Clean out any cases of header being written as row
 
-            startnum, endnum = wheresplit*int(num),wheresplit*int(num+1)
             #dfslice = bigdf_iter.iloc[startnum:endnum,:]
             #print("Loading DF parsing output for slice #" + str(num) + " of " + str(numschools) + " school websites, from #" + str(startnum) + "-" + str(endnum) + "...")
             logging.info("Loading parsing output for slice #" + str(num) + " of " + str(numschools) + " school websites, from #" + str(startnum) + "-" + str(endnum) + "...")
@@ -738,8 +741,8 @@ def slice_pandify(bigdf_iter, numsplits, df_filepath):
                 dfslice.to_csv(df_filepath, mode="w", index=False, header=dfslice.columns.values, sep="\t", encoding="utf-8")
             #elif num==1:
             #    sys.exit()
-            elif num==(284 or 441 or 593 or 594 or 595 or 596 or 1159 or 1218 or 1219 or 1271 or 1297 or 1303 or 1667 or 1861 or 3361 or 4467 or 4836 or 4871 or 4910 or 5418): # or num==441 or num==593: # Skip Primavera_-_Online_AZ', which is slice #284 if numsplits = 6752
-                continue # Move on to next slice
+            #elif num==(284 or 441 or 593 or 594 or 595 or 596 or 1159 or 1218 or 1219 or 1271 or 1297 or 1303 or 1667 or 1861 or 3361 or 4467 or 4836 or 4871 or 4910 or 5418): # or num==441 or num==593: # Skip Primavera_-_Online_AZ', which is slice #284 if numsplits = 6752
+            #    continue # Move on to next slice
             # TO DO: Clean out excess HTML (e.g., blog posts) in wget downloads for these schools
             else: # Append next slice to existing file
                 dfslice.to_csv(df_filepath, mode="a", index=False, header=False, sep="\t", encoding="utf-8")
@@ -761,6 +764,7 @@ def slice_pandify(bigdf_iter, numsplits, df_filepath):
 # ### Load parsing output from disk into analyzable object (Pandas DataFrame or list of dicts)
 
 data_loc = full_schooldata # assume we're running on full charter population
+logging.info("Data location: " + str(data_loc))
 URL_var,NAME_var,ADDR_var = get_vars(data_loc) # get varnames depending on data source
 
 """# Use dictify_webtext to load the parsing output from local storage into the list of dictionaries:

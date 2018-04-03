@@ -43,6 +43,7 @@ curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.s
 apt-get install git-lfs
 git lfs install
 git lfs track "*.csv" # Possibly add other file types here
+git config --global push.default simple
 
 # Set user permissions with custom playbook:
 ansible-playbook jetstream-playbook.yaml

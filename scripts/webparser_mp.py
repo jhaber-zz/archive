@@ -444,6 +444,7 @@ def dict_count(text_list, custom_dict):
     
     return dictless_list,int(counts)
 
+
 def dict_match_len(phrase, custom_dict, length):
     
     """Helper function to dict_match. 
@@ -476,7 +477,7 @@ def dict_match_len(phrase, custom_dict, length):
 
                   
 @timeout_decorator.timeout(20, use_signals=False)
-def dictmatch_file_helper(file, listlists, all_matches):
+def dictmatch_file_helper(file, listlists, allmatch_count):
     """Counts number of matches in file for each list of terms given, and also collects the terms not matched.
     listlists is a list of lists, each list containing:
     a list of key terms--e.g., for dictsnames_biglist, currently essentialism, progressivism, ritualism, and all three combined (ess_dict, prog_dict, rit_dict, all_dicts);
@@ -489,12 +490,12 @@ def dictmatch_file_helper(file, listlists, all_matches):
         dictless_add,count_add = dict_count(parsed_pagetext,listlists[i][0])
         listlists[i][1] += count_add
         listlists[i][2] += dictless_add
-        all_matches += count_add
+        allmatch_count += count_add
         
         logging.info("Discovered " + str(count_add) + " matches for " + str(file) + \
-                     ", a total thus far of " + str(all_matches) + " matches...")
+                     ", a total thus far of " + str(allmatch_count) + " matches...")
                   
-    return listlists,all_matches
+    return listlists,allmatch_count
                   
 
 # ### Define parsing helper functions
@@ -515,40 +516,38 @@ def parsefile_by_tags(HTML_file):
     visible_text = soup.getText(random_string).replace("\n", "") # Replace "p" tags with random string, eliminate newlines
     # Split text into list using random string while also eliminating tabs and converting unicode to readable text:
     visible_text = list(normalize("NFKC",elem.replace("\t","")) for elem in visible_text.split(random_string))
+    # TO DO: Eliminate anything with a '\x' in it (after splitting by punctuation)
     visible_text = list(filter(lambda vt: vt.split() != [], visible_text)) # Eliminate empty elements
     # Consider joining list elements together with newline in between by prepending with: "\n".join
 
     return(visible_text)
 
 
-example_textlist = parsefile_by_tags(example_file)
-logging.info("Output of parsefile_by_tags:\n" + str(example_textlist))
+logging.info("Output of parsefile_by_tags:\n" + str(parsefile_by_tags(example_file)))
 
     
 @timeout_decorator.timeout(20, use_signals=False)
-def parse_file_helper(file,webtext,keywords_text,ideology_text):
-    """Parses file into (visible) webtext, both complete and filtered by terms in 'keywords' and 'ideology' lists."""
+def parse_file_helper(file, webtext, keys_tuple, keys_vars, dicts_tuple, dicts_vars):
+    """Parses file into (visible) webtext, both as raw webtext and filtered by keywords (held in keys_tuple) into the corresponding list of strings in keys_vars."""
     
     parsed_pagetext = []
     parsed_pagetext = parsefile_by_tags(file) # Parse page text
 
     if len(parsed_pagetext) == 0: # Don't waste time adding empty pages
         logging.warning("    Nothing to parse in " + str(file) + "!")
+        return
     
-    else:
-        # Filter parsed text and add to appropriate variables usng `.extend`:
-        webtext.extend(parsed_pagetext) # Add to long list (no filter)
-        keywords_text.extend(filter_dict_page(parsed_pagetext, all_keywords)) # Filter using keywords
-        ideology_text.extend(filter_dict_page(parsed_pagetext, all_ideol)) # Filter using ideology words
-        mission.extend(filter_dict_page(parsed_pagetext,mission_keywords)) # Filter using mission keywords
-        curriculum.extend(filter_dict_page(parsed_pagetext,curriculum_keywords)) # Filter using curriculum keywords
-        philosophy.extend(filter_dict_page(parsed_pagetext,philosophy_keywords)) # Filter using philosophy keywords
-        history.extend(filter_dict_page(parsed_pagetext,history_keywords)) # Filter using history keywords
-        about.extend(filter_dict_page(parsed_pagetext,about_keywords)) # Filter using general/'about' keywords
-
-        logging.info("Successfully parsed and filtered file " + str(file) + "...")
+    webtext.extend(parsed_pagetext) # Add to long list (no filter)
+    
+    # Filter parsed text and add to appropriate variables using `.extend`:
+    for i in range(len(keys_tuple)):
+        keys_vars[i].extend(filter_dict_page(parsed_pagetext, keys_tuple[i]))
+    for i in range(len(dicts_tuple)):
+        dicts_vars[i].extend(filter_dict_page(parsed_pagetext, dicts_tuple[i]))
         
-    return webtext,keywords_text,ideology_text
+    logging.info("Successfully parsed and filtered file " + str(file) + "...")
+    
+    return webtext, keys_vars, dicts_vars
                   
 
 def filter_dict_page(pagetext_list, keyslist):
@@ -600,7 +599,9 @@ def parse_school(schooltup):
     counts_file = school_folder + "dict_counts.txt" # File path for dictionary counts output
     
     if school_URL==school_name:
-        school_URL = folder_name # Workaround for full_schooldata, which doesn't yet have URLs
+        school_URL = folder_name # Workaround for full_schooldata, which doesn't yet have URLs: use folder name, which is more or less unique
+        
+    duplicate_flag,parse_error_flag,wget_fail_flag,file_count = 0,0,0,0 # initialize error flags
     
     # PRELIMINARY TEST 1: Check if parsing is already done. If so, no need to parse--stop function!
     if os.path.exists(error_file) and os.path.exists(counts_file):
@@ -608,7 +609,6 @@ def parse_school(schooltup):
         return
     
     # PRELIMINARY TEST 2: Check if folder exists. If not, nothing to parse. Thus, do not pass go; do not continue function.
-    duplicate_flag,parse_error_flag,wget_fail_flag,file_count = 0,0,0,0 # initialize error flags
     
     if not (os.path.exists(school_folder) or os.path.exists(school_folder.lower()) or os.path.exists(school_folder.upper())):
         logging.warning("NO DIRECTORY FOUND, creating " + str(school_folder) + " for 'error_flags.txt' and aborting...")
@@ -633,17 +633,18 @@ def parse_school(schooltup):
     logging.info("Preliminary tests passed. Parsing data in " + str(school_folder) + "...")
     
     # Next, initialize local (within-function) variables for text output
-    webtext,keywords_text,ideology_text,dictless_words = [],[],[],[] # text category lists
+    webtext,keywords_text,ideology_text = [],[],[],[] # text category lists
     file_list = [] # list of HTML files in school_folder
     
-    mission,curriculum,philosophy,history,about,ideology,keywords = [],[],[],[],[],[],[] # matched keyword lists
-    ess_count, prog_count, rit_count, alldict_count, all_matches = 0,0,0,0,0 # dict match counts
-    ess_dictless, prog_dictless, rit_dictless, alldict_dictless = [],[],[],[] # lists of unmatched words. Why?
-    # Later we can revise the dictionaries by looking at what content words were not counted by current dictionaries. 
+    mission_count,curriculum_count,philosophy_count,history_count,about_count,keywords_count,allkey_matches = 0,0,0,0,0,0,0 # matched keyword counts
+    mission_dictless,curriculum_dictless,philosophy_dictless,history_dictless,about_dictless,keywords_dictless = [],[],[],[],[],[] # lists of words not matched for each keyword list
+    ess_count, prog_count, rit_count, allideol_count, alldict_count, alldict_matches = 0,0,0,0,0,0 # dict match counts
+    ess_dictless, prog_dictless, rit_dictless, allideol_dictless, alldict_dictless = [],[],[],[],[] # lists of words not matched for each dictionary
+    # Initialize counts and  unmatched lists so later we can revise the dictionaries by looking at what content words were not counted by current dictionaries
 
-    keysnames_list = [mission,curriculum,philosophy,history,about,keywords] # list of keywords to match
+    keysnames_list = [mission_count,curriculum_count,philosophy_count,history_count,about_count,keywords_count] # list holding match counts per keywords list
     keylessnames_list = [mission_dictless,curriculum_dictless,philosophy_dictless,history_dictless,about_dictless,keywords_dictless] # list of terms not matched to each list of keywords
-    dictsnames_list = [ess_count, prog_count, rit_count, allideol_count, alldict_count] # list of dicts to match
+    dictsnames_list = [ess_count, prog_count, rit_count, allideol_count, alldict_count] # list holding match counts per dict
     dictlessnames_list = [ess_dictless, prog_dictless, rit_dictless, allideol_dictless, alldict_dictless] # list of terms not matched to each list of dicts
 
     ''' Reminder/ FYI of what's in these global tuples of lists:
@@ -682,8 +683,10 @@ def parse_school(schooltup):
                     
             # Parse and categorize page text:
             try:                    
-                webtext,keywords_text,ideology_text = parse_file_helper(file, webtext, keywords_text, ideology_text)
-                mission,curriculum,philosophy,history,about,ideology,keywords # TO DO: Read these in somehow!
+                # TO DO: Correct these inputs
+                keys_vars = []
+                dicts_vars = []
+                webtext, keys_vars, dicts_vars = parse_file_helper(file, webtext, keys_tuple, keys_vars, dicts_tuple, dicts_vars )
                         
                 file_count+=1 # add to count of parsed files
 
@@ -692,8 +695,8 @@ def parse_school(schooltup):
                         
             # Count dict matches:
             try:
-                dictsnames_biglist, dicts_matches = dictmatch_file_helper(file, dictsnames_biglist, all_matches)
-                keysnames_biglist, keys_matches = dictmatch_file_helper(file, keysnames_biglist, all_matches)
+                dictsnames_biglist, dicts_matches = dictmatch_file_helper(file, dictsnames_biglist, alldict_matches)
+                keysnames_biglist, keys_matches = dictmatch_file_helper(file, keysnames_biglist, allkey_matches)
 
             except Exception as e:
                 logging.info("ERROR! Failed to count number of dict matches while parsing " + str(file) + "...\n" + str(e))

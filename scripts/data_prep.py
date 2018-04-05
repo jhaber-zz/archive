@@ -46,17 +46,17 @@ inline_tags = ["b", "big", "i", "small", "tt", "abbr", "acronym", "cite", "dfn",
 # ### Set directories
 
 if workstation and notebook:
-    dir_prefix = "C:\\Users\\Jaren\\Documents\\Charter-school-identities\\" # One level further down than the others
+    dir_prefix = "C:\\Users\\Jaren\\Documents\\" # One level further down than the others
 elif notebook:
-    dir_prefix = "/home/jovyan/work/Charter-school-identities/"
+    dir_prefix = "/home/jovyan/work/"
 else:
-    dir_prefix = "/vol_b/data/Charter-school-identities/"
+    dir_prefix = "/vol_b/data/"
 
 example_page = "https://westlakecharter.com/about/"
 example_schoolname = "TWENTY-FIRST_CENTURY_NM"
 
-save_dir = dir_prefix + "data" + os.sep # Directory in which to save data files
-dicts_dir = dir_prefix + "dicts" + os.sep # Directory in which to find & save dictionary files
+save_dir = dir_prefix + "Charter-school-identities" + os.sep + "data" + os.sep # Directory in which to save data files
+dicts_dir = dir_prefix + "Charter-school-identities" + os.sep + "dicts" + os.sep # Directory in which to find & save dictionary files
 temp_dir = save_dir + "temp" + os.sep # Directory in which to save temporary data files
 
 micro_sample13 = save_dir + "micro-sample13_coded.csv" # Random micro-sample of 300 US charter schools
@@ -624,7 +624,7 @@ def pandify_webtext(df):
     df = df.assign(word_count=empty, chunk_count=empty, FOLDER_NAME=empty, TOTETH=empty, PCTETH=empty, AGE=empty, PCTFRL=empty, PLACE=empty, WEBTEXT=empty, KEYWORDS_TEXT=empty, IDEOLOGY_TEXT=empty, ESS_COUNT=empty, PROG_COUNT=empty, RIT_COUNT=empty, ESS_STR=empty, PROG_STR=empty, IDDIFF_STR=empty, ESS_PCT=empty, PROG_PCT=empty, IDDIFF_PCT=empty) # Add empty columns to df
     df.loc[:,["PLACE", "WEBTEXT", "KEYWORDS_TEXT", "IDEOLOGY_TEXT", "FOLDER_NAME"]] = df.loc[:,["PLACE", "WEBTEXT", "KEYWORDS_TEXT", "IDEOLOGY_TEXT", "FOLDER_NAME"]].apply(lambda x: x.astype(object)) # Convert to object type--holds text
     df.loc[:,["word_count", "chunk_count", "AGE", "TOTETH", "ESS_COUNT", "PROG_COUNT", "RIT_COUNT"]] = df.loc[:,["word_count", "chunk_count", "AGE", "TOTETH", "ESS_COUNT", "PROG_COUNT", "RIT_COUNT"]].apply(pd.to_numeric, downcast="unsigned") # Convert to int dtype--holds positive numbers (no decimals)
-    df.loc[:,["PCTETH", "PCTFRL", "ESS_STRENGTH", "PROG_STRENGTH", "IDDIFF_STR", "ESS_PCT", "PROG_PCT", "IDDIFF_PCT"]] = df.loc[:,["PCTETH", "PCTFRL", "ESS_STRENGTH", "PROG_STRENGTH", "IDDIFF_STR", "ESS_PCT", "PROG_PCT", "IDDIFF_PCT"]].apply(pd.to_numeric, downcast="float") # Use most efficient float type for these vars--hold decimals
+    df.loc[:,["PCTETH", "PCTFRL", "ESS_STR", "PROG_STR", "IDDIFF_STR", "ESS_PCT", "PROG_PCT", "IDDIFF_PCT"]] = df.loc[:,["PCTETH", "PCTFRL", "ESS_STR", "PROG_STR", "IDDIFF_STR", "ESS_PCT", "PROG_PCT", "IDDIFF_PCT"]].apply(pd.to_numeric, downcast="float") # Use most efficient float type for these vars--hold decimals
     
     
     df.loc[:,"FOLDER_NAME"] = df.loc[:,[NAME_var,ADDR_var]].apply(lambda x: re.sub(" ","_","{} {}".format(str(x[0]),str(x[1][-8:-6]))), axis=1) # This gives name and state separated by "_"
@@ -657,7 +657,7 @@ def pandify_webtext(df):
         
         # Load school parse output from disk into DataFrame:
         df.loc[downloaded,"WEBTEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}webtext.txt".format(str(x)))) # df["wget_fail_flag"]==False
-        df.loc[downloaded,"word_count"] = df.loc[downloaded, "WEBTEXT"].apply(lambda x: sum(map(len, map(nltk.word_tokenize, x))))
+        df.loc[downloaded,"word_count"] = df.loc[downloaded, "WEBTEXT"].apply(lambda x: sum(map(len, map(word_tokenize, x))))
         df.loc[downloaded,"chunk_count"] = df.loc[downloaded, "WEBTEXT"].apply(lambda x: len(x))
         df.loc[downloaded,"KEYWORDS_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}keywords_text.txt".format(str(x))))
         df.loc[downloaded,"IDEOLOGY_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}ideology_text.txt".format(str(x))))
@@ -675,11 +675,9 @@ def pandify_webtext(df):
         #logging.info(str(df.loc[downloaded,'prog_strength']))
         
         df = df.drop(["school_folder","error_text","error_file","counts_text", "AM", "AS", "BL", "HI", "HP"],axis=1) # Clean up temp variables
-        df = convert_df(df) # Make this DF as memory-efficient as possible by appropriately converting column dtypes
-        
         logging.info("LOADED " + df["html_file_count"].sum() + " .html files into DataFrame!")
         #save_datafile(df, save_dir+"df_parser_temp", "pickle") # Save output so we can pick up where left off, in case something breaks before able to save final output
-        
+       
         return df
     
     except Exception as e:
@@ -705,8 +703,8 @@ def slice_pandify(bigdf_iter, numsplits, df_filepath):
         try:
             dfslice = pd.DataFrame()
             dfslice = bigdf_iter.get_chunk(wheresplit) # Get next chunk of rows 
-            logging.info(str(dfslice.keys()))
-            logging.info(str(dfslice.info()))
+            #logging.info(str(dfslice.keys()))
+            #logging.info(str(dfslice.info()))
             dfslice = dfslice[dfslice.ADDRESS14 != 'ADDRESS14'] # Clean out any cases of header being written as row
 
             #dfslice = bigdf_iter.iloc[startnum:endnum,:]
@@ -732,7 +730,8 @@ def slice_pandify(bigdf_iter, numsplits, df_filepath):
                 dfslice.to_csv(df_filepath, mode="a", index=False, header=False, sep="\t", encoding="utf-8")
                 print("Slice #" + str(num) + " saved to " + df_filepath + "!")
                 logging.info("Slice #" + str(num) + " saved to " + df_filepath + "!")'''
-                
+            
+            dfslice = convert_df(dfslice) # Make this DF as memory-efficient as possible by appropriately converting column dtypes    
             dfslice = pandify_webtext(dfslice) # Load parsed output into the DF
             logging.info(dfslice[["FOLDER_NAME", "html_file_count"]])
             logging.info("Slice #" + str(num) + " loaded! Saving file...")

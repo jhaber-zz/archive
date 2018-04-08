@@ -672,7 +672,7 @@ def pandify_webtext(df):
         df.loc[downloaded,"ESS_PCT"] = (df.loc[downloaded,"ESS_COUNT"]/df.loc[downloaded, "word_count"]).apply(pd.to_numeric, downcast='float') # calculate ideology ratio, use most memory-efficient float dtype
         df.loc[downloaded,"PROG_PCT"] = (df.loc[downloaded,"PROG_COUNT"]/df.loc[downloaded, "word_count"]).apply(pd.to_numeric, downcast='float') 
         df.loc[downloaded,"IDDIFF_PCT"] = (df.loc[downloaded,"PROG_PCT"] - df.loc[downloaded,"ESS_PCT"]).apply(pd.to_numeric, downcast='float') 
-        #logging.info(str(df.loc[downloaded,'prog_strength']))
+        # TO DO: Encode diffs using logs of strengths and percents
         
         df = df.drop(["school_folder","error_text","error_file","counts_text", "AM", "AS", "BL", "HI", "HP"],axis=1) # Clean up temp variables
         logging.info("LOADED " + df["html_file_count"].sum() + " .html files into DataFrame!")
@@ -731,6 +731,11 @@ def slice_pandify(bigdf_iter, numsplits, df_filepath):
                 print("Slice #" + str(num) + " saved to " + df_filepath + "!")
                 logging.info("Slice #" + str(num) + " saved to " + df_filepath + "!")'''
             
+            # Skip sites that present parsing problems--namely #3361, which has 10K+ html pages and is in /vol_b/data/wget/parll_wget/Gentilly_Terrace_Elementary_School_LA/www.brothermartin.com
+            if num==3361: #(284 or 441 or 593 or 594 or 595 or 596 or 1159 or 1218 or 1219 or 1271 or 1297 or 1303 or 1667 or 1861 or 3361 or 4467 or 4836 or 4871 or 4910 or 5418): # or num==441 or num==593: # Skip Primavera_-_Online_AZ', which is slice #284 if numsplits = 6752
+                continue # Move on to next slice
+                # TO DO: Clean out excess HTML (e.g., blog posts) in wget downloads for these schools
+            
             dfslice = convert_df(dfslice) # Make this DF as memory-efficient as possible by appropriately converting column dtypes    
             dfslice = pandify_webtext(dfslice) # Load parsed output into the DF
             logging.info(dfslice[["FOLDER_NAME", "html_file_count"]])
@@ -738,16 +743,10 @@ def slice_pandify(bigdf_iter, numsplits, df_filepath):
             
             if num==0: # Save first slice to new file (overwriting if needed)
                 dfslice.to_csv(df_filepath, mode="w", index=False, header=dfslice.columns.values, sep="\t", encoding="utf-8")
-            #elif num==1:
-            #    sys.exit()
-            #elif num==(284 or 441 or 593 or 594 or 595 or 596 or 1159 or 1218 or 1219 or 1271 or 1297 or 1303 or 1667 or 1861 or 3361 or 4467 or 4836 or 4871 or 4910 or 5418): # or num==441 or num==593: # Skip Primavera_-_Online_AZ', which is slice #284 if numsplits = 6752
-            #    continue # Move on to next slice
-            # TO DO: Clean out excess HTML (e.g., blog posts) in wget downloads for these schools
             else: # Append next slice to existing file
                 dfslice.to_csv(df_filepath, mode="a", index=False, header=False, sep="\t", encoding="utf-8")
             #save_datafile(dfslice,df_filepath,"CSV") # BROKEN function--Save slice to file--should work whether writing new file or appending to CSV
             
-            #print("Slice #" + str(num) + " saved to " + df_filepath + "!")
             logging.info("Slice #" + str(num) + " saved to " + df_filepath + "!")
             del dfslice # Free memory by deleting this temporary, smaller slice
             
@@ -817,6 +816,14 @@ tqdm.pandas(desc="Loading webtext->DF") # To show progress, create & register ne
 # Load parsing output into big pandas DataFrame through slices (to work with limited system memory):
 merged_df_file = temp_dir+"mergedf_"+str(datetime.today().strftime("%Y-%m-%d"))+".csv" # Prepare file name
 slice_pandify(schooldf_iter, splits, merged_df_file)
+
+# Plan B, in case slice_pandify() still doesn't work:
+#schooldf = pd.read_csv(data_loc, encoding = "Latin1", low_memory=False, na_values={"TITLEI":["M","N"]}) # Create DF from source file
+#schooldf = convert_df(schooldf) # Make this DF as memory-efficient as possible by appropriately converting column dtypes    
+#schooldf = pandify_webtext(schooldf) # Load parsed output into the DF
+#newfile = "charters_parsed_" + str(datetime.today().strftime("%Y-%m-%d"))
+#pd.to_csv(schooldf, save_dir+newfile, mode="w", index=False, header=schooldf.columns.values, sep="\t", encoding="utf-8")
+
 print("Larger DF successfully split into " + str(splits) + " smaller DFs, parsed, combined, and saved to file!")
 
 '''if schooldf is not None:

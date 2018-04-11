@@ -197,10 +197,10 @@ def write_counts(file_path, names_list, counts_list):
     
     with open(file_path, 'w') as file_handler:
         for tup in zip(names_list,counts_list): # iterate over zipped list of tuples
-            if tup != list(zip(names_list,counts_list))[-1]:
-                file_handler.write("{} {}\n".format(tup[0],tup[1]))
-            else:
+            if tup == list(zip(names_list,counts_list))[-1]: # If last line, don't add newline
                 file_handler.write("{} {}".format(tup[0],tup[1]))
+            else:
+                file_handler.write("{} {}\n".format(tup[0],tup[1]))
         return
 
     
@@ -528,7 +528,12 @@ logging.info("Output of parsefile_by_tags:\n" + str(parsefile_by_tags(example_fi
     
 @timeout_decorator.timeout(20, use_signals=False)
 def parse_file_helper(file, webtext, keys_tuple, keys_vars, dicts_tuple, dicts_vars):
-    """Parses file into (visible) webtext, both as raw webtext and filtered by keywords (held in keys_tuple) into the corresponding list of strings in keys_vars."""
+    """Parses file into (visible) webtext, both as raw webtext and filtered by keywords (held in keys_tuple and dicts_tuple) 
+    into the corresponding list of strings (held in keys_vars and dicts_vars). 
+    
+    keys_tuple and dicts_tuple are tuples of lists, as follows:
+    keys_tuple = tuple([mission_keywords, curriculum_keywords, philosophy_keywords, history_keywords, about_keywords, all_keywords])
+    dicts_tuple = tuple([ess_dict,prog_dict,rit_dict,all_ideol,all_dicts])"""
     
     parsed_pagetext = []
     parsed_pagetext = parsefile_by_tags(file) # Parse page text
@@ -562,7 +567,7 @@ def filter_dict_page(pagetext_list, keyslist):
         lowercasestring = str(string).lower() # lower-case string...
         dict_list = [key.lower() for key in list(keyslist)] # ...compared with lower-case element of keyslist
         for key in dict_list:
-            if key in lowercasestring and key in lowercasestring.split(' '): # Check that the word is the whole word not part of another one
+            if key in lowercasestring and key in lowercasestring.split(' '): # Check that the word is the whole word, rather than part of only one word in a multi-word expression
                 filteredtext.append(string)
 
     return filteredtext
@@ -632,15 +637,25 @@ def parse_school(schooltup):
     
     logging.info("Preliminary tests passed. Parsing data in " + str(school_folder) + "...")
     
-    # Next, initialize local (within-function) variables for text output
-    webtext,keywords_text,ideology_text = [],[],[],[] # text category lists
     file_list = [] # list of HTML files in school_folder
     
+    # Next, initialize local (within-function) variables for text output
+    webtext = [] # Raw, unfiltered text from website (after parsing)
+    mission_text,curriculum_text,philosophy_text,history_text,about_text,allkeys_text = [],[],[],[],[],[] # keyword text lists
+    prog_text,ess_text,rit_text,allideol_text,alldicts_text = [],[],[],[],[] # ideology text lists
+    
+    # Initialize lists of text-storing variables for text matching--along with list of text file names for output
+    keys_vars = [mission_text,curriculum_text,philosophy_text,history_text,about_text,allkeys_text]
+    keysfiles_list = ["mission_text.txt","curr_text.txt","phil_text.txt","hist_text.txt","about_text.txt","allkeys_text.txt"]
+    dicts_vars = [prog_text,ess_text,rit_text,allideol_text,alldicts_text]
+    dictsfiles_list = ["prog_text.txt","ess_text.txt","rit_text.txt","allideol_text.txt","alldicts_text.txt"]
+    
+    # Initialize counts and  unmatched lists...
+    # The latter will later help us revise the dictionaries by looking at what content words were not counted by current dictionaries
     mission_count,curriculum_count,philosophy_count,history_count,about_count,keywords_count,allkey_matches = 0,0,0,0,0,0,0 # matched keyword counts
     mission_dictless,curriculum_dictless,philosophy_dictless,history_dictless,about_dictless,keywords_dictless = [],[],[],[],[],[] # lists of words not matched for each keyword list
     ess_count, prog_count, rit_count, allideol_count, alldict_count, alldict_matches = 0,0,0,0,0,0 # dict match counts
     ess_dictless, prog_dictless, rit_dictless, allideol_dictless, alldict_dictless = [],[],[],[],[] # lists of words not matched for each dictionary
-    # Initialize counts and  unmatched lists so later we can revise the dictionaries by looking at what content words were not counted by current dictionaries
 
     keysnames_list = [mission_count,curriculum_count,philosophy_count,history_count,about_count,keywords_count] # list holding match counts per keywords list
     keylessnames_list = [mission_dictless,curriculum_dictless,philosophy_dictless,history_dictless,about_dictless,keywords_dictless] # list of terms not matched to each list of keywords
@@ -671,7 +686,7 @@ def parse_school(schooltup):
         file_list = list_files(school_folder, ".html") # Get list of HTML files in school_folder
             
         if file_list==(None or school_folder or "" or []) or not file_list or len(file_list)==0:
-            logging.info("No .html files found. Aborting parser for " + str(school_name) + "...")
+            logging.warning("No .html files found. Aborting parser for " + str(school_name) + "...")
             wget_fail_flag = 1
             write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
             write_counts(counts_file, ["ess_count","prog_count","rit_count"], [0,0,0]) # empty counts file simplifies parsing
@@ -683,11 +698,7 @@ def parse_school(schooltup):
                     
             # Parse and categorize page text:
             try:                    
-                # TO DO: Correct these inputs
-                keys_vars = []
-                dicts_vars = []
-                webtext, keys_vars, dicts_vars = parse_file_helper(file, webtext, keys_tuple, keys_vars, dicts_tuple, dicts_vars )
-                        
+                webtext, keys_vars, dicts_vars = parse_file_helper(file, webtext, keys_tuple, keys_vars, dicts_tuple, dicts_vars)
                 file_count+=1 # add to count of parsed files
 
             except Exception as e:
@@ -699,18 +710,24 @@ def parse_school(schooltup):
                 keysnames_biglist, keys_matches = dictmatch_file_helper(file, keysnames_biglist, allkey_matches)
 
             except Exception as e:
-                logging.info("ERROR! Failed to count number of dict matches while parsing " + str(file) + "...\n" + str(e))
+                logging.error("ERROR! Failed to count number of dict matches while parsing " + str(file) + "...\n" + str(e))
                     
         # Report and save output to disk:
         parsed.append(school_URL)
-        file_count = int(file_count-1)
+        file_count = int(file_count) # Subtract 1?
+        logging.info("  PARSED " + str(file_count) + " .html file(s) from website of " + str(school_name) + "...")
         print("  PARSED " + str(file_count) + " .html file(s) from website of " + str(school_name) + "...")
+        
+        try:
+            write_list(school_folder + keysfiles_list[i], keys_vars[i]) for i in range(len(keys_vars))
+            write_list(school_folder + dictsfiles_list[i], dicts_vars[i]) for i in range(len(dicts_vars))
             
-        write_list(school_folder + "webtext.txt", webtext)
-        write_list(school_folder + "keywords_text.txt", keywords_text)
-        write_list(school_folder + "ideology_text.txt", ideology_text)
+        except Exception as e:
+            logging.debug("ERROR! Failed to save text output files. Debug this NOW!")
+            print("ERROR! Failed to save text output files. Debug this NOW!")
+            sys.exit()
             
-        print("  Found " + str(all_matches) + " total dictionary matches and " + str(len(dictsnames_biglist[3][2])) + " uncounted words for " + str(school_name) + "...")
+        logging.info("  Found " + str(all_matches) + " total dictionary matches and " + str(len(dictsnames_biglist[3][2])) + " uncounted words for " + str(school_name) + "...")
 
         write_counts(counts_file, ["ess_count","prog_count","rit_count"], [dictsnames_biglist[0][1], dictsnames_biglist[1][1], dictsnames_biglist[2][1]])
         write_list(school_folder + "dictless_words.txt", dictsnames_biglist[3][2])

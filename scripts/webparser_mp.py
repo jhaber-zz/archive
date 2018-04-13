@@ -500,6 +500,39 @@ def dictmatch_file_helper(file, listlists, allmatch_count):
 
 # ### Define parsing helper functions
 
+def clean_text(txt): 
+    '''Takes in a string and cleans string. 
+    TO DO: Spell check in Python?'''
+    
+    # Get rid of different things we don't want:'\\n', '\\randoms\\' (e.g., '\\x0bNyI' in '\\x0bNyI\\'), "\'", "\\",
+    # also each of ,[]{}&/\:<()*d!.'-"_ (where d indicates digits)
+    # pat1 = re.compile("\\\\n|\\\\[A-Za-z0-9_-]+|\\'|,|\\\\|\[|\]|\{|\}|\$|\&|\/|\||\:|\<|\(|\)|\*|\d|\!|\.|'|-|\"|_")
+    pat1 = re.compile("\\\\n|\\\\[A-Za-z0-9_-]+|\\\\|'[|\\|\[|\]|[|]|\{|\}|\$|\&|\/|\||\:|\<|\(|\)|\*|\d|\!|-|\"|_|>>|\>|\>>|\>\>")
+    #pat1 = re.compile("\\\\[A-Za-z0-9_-]+|\\'\\")
+    cleaned = re.sub(pat1, " ", txt)
+    
+    # Get rid of words less than 3 letters 
+    #pat2 = re.compile("\\b[a-zA-Z]{1,3}\\b")
+    # Get rid of words of one character long other than a, A, i, or I
+    pat2 = re.compile("\\b[b-hj-zB-HJ-Z]\\b")
+    cleaned = re.sub(pat2, " ", cleaned)
+    
+    # Get rid of extra spaces
+    pat3 = re.compile("\s+")
+    cleaned = re.sub(pat3, " ", cleaned
+    
+    # Clean up spaces at beginning and end of strings
+    pat4 = re.compile("' ")
+    pat5 = re.compile(" ',")
+    cleaned = re.sub(pat5, " ", re.sub(pat4, " ", cleaned))
+    
+    # Lower case. 
+    #c = c.lower()
+    #c = re.sub(pat3, " ", a)
+
+    return cleaned
+
+
 def parsefile_by_tags(HTML_file):
     
     """Cleans HTML by removing inline tags, ripping out non-visible tags, 

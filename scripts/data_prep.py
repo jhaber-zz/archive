@@ -17,6 +17,7 @@ import os, re, fnmatch # for navigating file trees and working with strings
 import csv # for reading in CSV files
 #from glob import glob,iglob # for finding files within nested folders--compare with os.walk
 import json, pickle, csv # For saving a loading dictionaries, DataFrames, lists, etc. in JSON, pickle, and CSV formats
+from math import log10 # For calculating logarithms of dictionary counts
 from datetime import datetime # For timestamping files
 import time, timeout_decorator # To prevent troublesome files from bottlenecking the parsing process, use timeouts
 import sys # For working with user input
@@ -545,7 +546,8 @@ def filter_dict_page(pagetext_list, keyslist):
                   
 
 def dictify_webtext(school_dict):
-    """Reads parsing output from text files and saves to school_dict multiple parsing outputs:
+    """OBSOLETE. Kept here for purposes of comparison.
+    Reads parsing output from text files and saves to school_dict multiple parsing outputs:
     webtext, keywords_text, ideology_text, file_count, etc."""
     
     # Allow function to access these variables already defined outside the function (globally)
@@ -621,10 +623,10 @@ def pandify_webtext(df):
     
     # Initialize text strings and counts as empty, then convert data types:
     empty = ["" for elem in range(len(df["NCESSCH"]))] # Create empty string column that is as long as the longest variable (NCESCCH used for matching)
-    df = df.assign(word_count=empty, chunk_count=empty, FOLDER_NAME=empty, TOTETH=empty, PCTETH=empty, AGE=empty, PCTFRL=empty, PLACE=empty, WEBTEXT=empty, KEYWORDS_TEXT=empty, IDEOLOGY_TEXT=empty, ESS_COUNT=empty, PROG_COUNT=empty, RIT_COUNT=empty, ESS_STR=empty, PROG_STR=empty, IDDIFF_STR=empty, ESS_PCT=empty, PROG_PCT=empty, IDDIFF_PCT=empty) # Add empty columns to df
-    df.loc[:,["PLACE", "WEBTEXT", "KEYWORDS_TEXT", "IDEOLOGY_TEXT", "FOLDER_NAME"]] = df.loc[:,["PLACE", "WEBTEXT", "KEYWORDS_TEXT", "IDEOLOGY_TEXT", "FOLDER_NAME"]].apply(lambda x: x.astype(object)) # Convert to object type--holds text
+    df = df.assign(word_count=empty, chunk_count=empty, FOLDER_NAME=empty, TOTETH=empty, PCTETH=empty, AGE=empty, PCTFRL=empty, PLACE=empty, WEBTEXT=empty, PROG_TEXT=empty, ESS_TEXT=empty, RIT_TEXT=empty, IDEOLOGY_TEXT=empty, MISSION_TEXT=empty, CURR_TEXT=empty, PHIL_TEXT=empty, HIST_TEXT=empty, ABOUT_TEXT=empty, KEYWORDS_TEXT=empty, ESS_COUNT=empty, PROG_COUNT=empty, RIT_COUNT=empty, ESS_STR=empty, PROG_STR=empty, IDDIFF_STR=empty, IDDIFF_STRLOG=empty ESS_PCT=empty, PROG_PCT=empty, IDDIFF_PCT=empty, IDDIFF_PCTLOG=empty) # Add empty columns to df
+    df.loc[:,["PLACE", "WEBTEXT", "PROG_TEXT", "ESS_TEXT", "RIT_TEXT", "IDEOLOGY_TEXT", "MISSION_TEXT", "CURR_TEXT", "PHIL_TEXT", "HIST_TEXT", "ABOUT_TEXT", "KEYWORDS_TEXT", "FOLDER_NAME"]] = df.loc[:,["PLACE", "WEBTEXT", "PROG_TEXT", "ESS_TEXT", "RIT_TEXT", "IDEOLOGY_TEXT", "MISSION_TEXT", "CURR_TEXT", "PHIL_TEXT", "HIST_TEXT", "ABOUT_TEXT", "KEYWORDS_TEXT", "FOLDER_NAME"]].apply(lambda x: x.astype(object)) # Convert to object type--holds text
     df.loc[:,["word_count", "chunk_count", "AGE", "TOTETH", "ESS_COUNT", "PROG_COUNT", "RIT_COUNT"]] = df.loc[:,["word_count", "chunk_count", "AGE", "TOTETH", "ESS_COUNT", "PROG_COUNT", "RIT_COUNT"]].apply(pd.to_numeric, downcast="unsigned") # Convert to int dtype--holds positive numbers (no decimals)
-    df.loc[:,["PCTETH", "PCTFRL", "ESS_STR", "PROG_STR", "IDDIFF_STR", "ESS_PCT", "PROG_PCT", "IDDIFF_PCT"]] = df.loc[:,["PCTETH", "PCTFRL", "ESS_STR", "PROG_STR", "IDDIFF_STR", "ESS_PCT", "PROG_PCT", "IDDIFF_PCT"]].apply(pd.to_numeric, downcast="float") # Use most efficient float type for these vars--hold decimals
+    df.loc[:,["PCTETH", "PCTFRL", "ESS_STR", "PROG_STR", "IDDIFF_STR", "IDDIFF_STRLOG", "ESS_PCT", "PROG_PCT", "IDDIFF_PCT", "IDDIFF_PCTLOG"]] = df.loc[:,["PCTETH", "PCTFRL", "ESS_STR", "PROG_STR", "IDDIFF_STR", "IDDIFF_PCTLOG", "ESS_PCT", "PROG_PCT", "IDDIFF_PCT", "IDDIFF_PCTLOG"]].apply(pd.to_numeric, downcast="float") # Use most efficient float type for these vars--hold decimals
     
     
     df.loc[:,"FOLDER_NAME"] = df.loc[:,[NAME_var,ADDR_var]].apply(lambda x: re.sub(" ","_","{} {}".format(str(x[0]),str(x[1][-8:-6]))), axis=1) # This gives name and state separated by "_"
@@ -655,24 +657,38 @@ def pandify_webtext(df):
         
         logging.info("Loading webtext from disk into DF...")
         
+        # For reference from webparser_mp.py:
+        # keysfiles_list = ["mission_text.txt","curr_text.txt","phil_text.txt","hist_text.txt","about_text.txt","allkeys_text.txt"]
+        # dictsfiles_list = ["prog_text.txt","ess_text.txt","rit_text.txt","allideol_text.txt","alldicts_text.txt"]
+        
         # Load school parse output from disk into DataFrame:
         df.loc[downloaded,"WEBTEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}webtext.txt".format(str(x)))) # df["wget_fail_flag"]==False
+        df.loc[downloaded,"PROG_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}prog_text.txt".format(str(x))))
+        df.loc[downloaded,"ESS_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}ess_text.txt".format(str(x))))
+        df.loc[downloaded,"RIT_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}rit_text.txt".format(str(x))))
+        df.loc[downloaded,"IDEOLOGY_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}allideol_text.txt".format(str(x))))
+        df.loc[downloaded,"MISSION_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}mission_text.txt".format(str(x))))
+        df.loc[downloaded,"CURR_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}curr_text.txt".format(str(x))))
+        df.loc[downloaded,"PHIL_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}phil_text.txt".format(str(x))))
+        df.loc[downloaded,"HIST_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}hist_text.txt".format(str(x))))
+        df.loc[downloaded,"ABOUT_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}about_text.txt".format(str(x))))
+        df.loc[downloaded,"KEYWORDS_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}allkeys_text.txt".format(str(x))))
+        
         df.loc[downloaded,"word_count"] = df.loc[downloaded, "WEBTEXT"].apply(lambda x: sum(map(len, map(word_tokenize, x))))
         df.loc[downloaded,"chunk_count"] = df.loc[downloaded, "WEBTEXT"].apply(lambda x: len(x))
-        df.loc[downloaded,"KEYWORDS_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}keywords_text.txt".format(str(x))))
-        df.loc[downloaded,"IDEOLOGY_TEXT"] = df.loc[downloaded,"school_folder"].apply(lambda x: load_list("{}ideology_text.txt".format(str(x))))
         
         df["counts_text"] = df.counts_file.apply(lambda x: load_list("{}".format(str(x))))
         df.loc[downloaded,"ESS_COUNT"] = df.loc[downloaded,"counts_text"].apply(lambda x: "{}".format(str(x[0].split()[-1]))).apply(pd.to_numeric,downcast='unsigned') # 2nd element of 1st row in counts_text: take as uint dtype (no negatives)
         df.loc[downloaded,"PROG_COUNT"] = df.loc[downloaded,"counts_text"].apply(lambda x: "{}".format(str(x[1].split()[-1]))).apply(pd.to_numeric,downcast='unsigned') # 2nd element of 2nd row
         df.loc[downloaded,"RIT_COUNT"] = df.loc[downloaded,"counts_text"].apply(lambda x: "{}".format(str(x[2].split()[-1]))).apply(pd.to_numeric,downcast='unsigned') # 2nd element of 3nd row
         df.loc[downloaded,"ESS_STR"] = (df.loc[downloaded,"ESS_COUNT"]/df.loc[downloaded, "RIT_COUNT"]).apply(pd.to_numeric, downcast='float') # calculate ideology ratio, use most memory-efficient float dtype
-        df.loc[downloaded,"PROG_STR"] = (df.loc[downloaded,"PROG_COUNT"]/df.loc[downloaded, "RIT_COUNT"]).apply(pd.to_numeric, downcast='float') 
-        df.loc[downloaded,"IDDIFF_STR"] = (df.loc[downloaded,"PROG_STR"] - df.loc[downloaded,"ESS_STR"]).apply(pd.to_numeric, downcast='float') 
+        df.loc[downloaded,"PROG_STR"] = (df.loc[downloaded,"PROG_COUNT"]/df.loc[downloaded, "RIT_COUNT"]).apply(pd.to_numeric, downcast='float')
+        df.loc[downloaded,"IDDIFF_STR"] = (df.loc[downloaded,"PROG_STR"] - df.loc[downloaded,"ESS_STR"]).apply(pd.to_numeric, downcast='float')
+        df.loc[downloaded,"IDDIFF_STRLOG"] = (df.loc[downloaded,"PROG_STR"].apply(log10) - df.loc[downloaded,"ESS_STR"].apply(log10)).apply(pd.to_numeric, downcast='float') 
         df.loc[downloaded,"ESS_PCT"] = (df.loc[downloaded,"ESS_COUNT"]/df.loc[downloaded, "word_count"]).apply(pd.to_numeric, downcast='float') # calculate ideology ratio, use most memory-efficient float dtype
         df.loc[downloaded,"PROG_PCT"] = (df.loc[downloaded,"PROG_COUNT"]/df.loc[downloaded, "word_count"]).apply(pd.to_numeric, downcast='float') 
-        df.loc[downloaded,"IDDIFF_PCT"] = (df.loc[downloaded,"PROG_PCT"] - df.loc[downloaded,"ESS_PCT"]).apply(pd.to_numeric, downcast='float') 
-        # TO DO: Encode diffs using logs of strengths and percents
+        df.loc[downloaded,"IDDIFF_PCT"] = (df.loc[downloaded,"PROG_PCT"] - df.loc[downloaded,"ESS_PCT"]).apply(pd.to_numeric, downcast='float')
+        df.loc[downloaded,"IDDIFF_PCTLOG"] = (df.loc[downloaded,"PROG_PCT"].apply(log10) - df.loc[downloaded,"ESS_PCT"].apply(log10)).apply(pd.to_numeric, downcast='float')
         
         df = df.drop(["school_folder","error_text","error_file","counts_text", "AM", "AS", "BL", "HI", "HP"],axis=1) # Clean up temp variables
         logging.info("LOADED " + df["html_file_count"].sum() + " .html files into DataFrame!")

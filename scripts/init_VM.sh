@@ -45,5 +45,8 @@ git lfs install
 git lfs track "*.csv" # Possibly add other file types here
 git config --global push.default simple
 
+# Install Box SDK for working with files
+pip install boxsdk
+
 # Set user permissions with custom playbook:
 ansible-playbook jetstream-playbook.yaml

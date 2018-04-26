@@ -2,18 +2,21 @@
 # run this script as: `sudo ansible-playbook jetstream-playbook.yaml`
 # run this first: `sudo ansible-galaxy install cmprescott.chrome`
 
-# TO DO: have this script add the following lines to /etc/sudoers.d/90-cloud-init-users
-#jhaber ALL=(ALL) NOPASSWD:ALL
-#bradafza ALL=(ALL) NOPASSWD:ALL
-#sujaksh ALL=(ALL) NOPASSWD:ALL
-#arjuns ALL=(ALL) NOPASSWD:ALL
-#harshayu ALL=(ALL) NOPASSWD:ALL
-#maxyuan ALL=(ALL) NOPASSWD:ALL
 
 - hosts: localhost
   roles:
      - { role: cmprescott.chrome, become: yes }
   tasks:
+    # Check if user permissions for passwordless sudo are set up correctly:
+    - lineinfile:
+        path: /etc/sudoers.d/90-cloud-init-users
+        line: "%admin ALL=(ALL) NOPASSWD:ALL"
+
+    - lineinfile:
+        path: /etc/sudoers.d/90-cloudimg-ubuntu
+        line: "%admin ALL=(ALL) NOPASSWD:ALL"
+
+    # Set up users and groups:
     - user:
         name: jhaber
         uid: 1000
@@ -94,4 +97,3 @@
         owner: root
         group: root
         mode: 0755
-  

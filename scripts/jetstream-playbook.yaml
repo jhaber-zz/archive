@@ -56,7 +56,13 @@
     - user:
         name: maxyuan
         uid: 1006
-        comment: "MaxYuan"
+        comment: "Max Yuan"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: jiahuazou
+        uid: 1007
+        comment: "Jiahua Zou"
         groups: users,admin,docker
         shell: /bin/bash
 
@@ -83,13 +89,17 @@
         state: present
         key: https://github.com/ajgokhale.keys
     - authorized_key:
+        user: aculich
+        state: present
+        key: https://github.com/aculich.keys
+    - authorized_key:
         user: maxyuan
         state: present
         key: https://github.com/MaxYuan85.keys
     - authorized_key:
-        user: aculich
+        user: jiahuazou
         state: present
-        key: https://github.com/aculich.keys
+        key: https://github.com/JiahuaZou.keys
 
     - copy:
         src: charter-school-notebook-server

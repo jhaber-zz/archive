@@ -50,3 +50,6 @@ pip install boxsdk
 
 # Set user permissions with custom playbook:
 ansible-playbook jetstream-playbook.yaml
+
+# Make sure permission structure on volume allows people to do things
+#chmod -R 1777 /vol_b/data

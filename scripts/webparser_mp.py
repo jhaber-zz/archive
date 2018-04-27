@@ -496,7 +496,55 @@ def dictmatch_file_helper(file, listlists, allmatch_count):
                      ", a total thus far of " + str(allmatch_count) + " matches...")
                   
     return listlists,allmatch_count
-                  
+
+
+def dict_bestmatch(folder_path, custom_dict):
+    """Parse through all .html files in folder_path, detecting matches with custom_dict,
+    to find and return the full text from the html page that has the most matches with that dictionary."""
+    
+    # Initialization
+    file_list = list_files(folder_path, ".html") # Get full list of file paths
+    num_pages = len(file_list) # Number of pages in school's folder
+    max_page_hits = (-1,-1) # Initialize tuple holding #hits, page number for HTML file with greatest # matches with custom_dict 
+    max_weighted_score = (-1,-1) # Same as previous, but weighted by page length
+    max_hit_text,max_score_text = [],[] # Empty lists for each best matching pages
+    
+    # Parse through pages to find maximum number of hits of custom_dict on any page
+    for pagenum in tqdm(range(num_pages), desc="Finding best match:"):
+        try:
+            page_dict_count,page_weighted_score = -1,-1
+            page_textlist = parsefile_by_tags(file_list[pagenum]) # Parse page with index pagenum into text list
+            
+            if len(page_textlist)==0: # If page is empty, don't bother with it
+                continue
+
+            dictless_text, page_dict_hits = dict_count(page_textlist, custom_dict) # Count matches between custom_dict and page_textlist using dict_count
+            numwords = len('\n'.join(page_textlist).split())
+            page_weighted_score = page_dict_hits / numwords # Weight score by number of words on page
+            logging.info("Found" + str(page_dict_hits) + "for page #" + str(pagenum) + "and " + str(page_dict_hits) + "weighting for the " + numwords + " words on that page.")
+
+            if page_dict_hits > max_page_hits[0]: # Compare matches for this page with overall max
+                max_page_hits = (page_dict_hits, pagenum) # If its greater, then make new page the max
+            if page_weighted_score > max_weighted_score[0]: # Same as previous two lines, but weighted by page length
+                max_weighted_score = (page_weighted_score, pagenum)
+
+        except Exception as e:
+            logging.debug("    ERROR counting dict matches in page #" + str(pagenum))
+            logging.debug(str(e))
+            continue
+                    
+    logging.info("Number matches and index of best matching page: " + str(max_page_hits[0]) + " " + str(max_page_hits[1]))
+    logging.info("Number matches and index of best WEIGHTED matching page: " + str(max_weighted_score[0]) + " " + str(max_weighted_score[1]))
+    
+    # Use pagenum to get text for page with highest number of hits and weighted score:
+    max_hit_text = parsefile_by_tags(file_list[max_page_hits[1]])
+    max_score_text = parsefile_by_tags(file_list[max_weighted_score[1]])
+    
+    logging.info("Page with the highest number of dictionary hits:\n\n" + str(max_hit_text))
+    logging.info("Page with the highest weighted score:\n\n" + str(max_score_text))
+    
+    return max_hit_text,max_score_text
+
 
 # ### Define parsing helper functions
 
@@ -609,7 +657,7 @@ def filter_dict_page(pagetext_list, keyslist):
 logging.info("Output of filter_keywords_page with keywords:\n" + str(filter_dict_page(example_textlist, all_keywords)))   
 logging.info("Output of filter_keywords_page with ideology words:\n\n" + str(filter_dict_page(example_textlist, all_ideol)))
 
-
+                     
 def parse_school(schooltup):
     
     """This core function parses webtext for a given school. Input is tuple: (name, address, url).

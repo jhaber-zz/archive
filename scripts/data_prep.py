@@ -449,6 +449,7 @@ def dict_count(text_list, custom_dict):
     
     return dictless_list,int(counts)
 
+
 def dict_match_len(phrase, custom_dict, length):
     
     """Helper function to dict_match. 

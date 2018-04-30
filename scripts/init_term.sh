@@ -4,3 +4,4 @@ pip install tqdm
 pip install nltk
 pip install tqdm
 pip install timeout-decorator
+pip install lxml

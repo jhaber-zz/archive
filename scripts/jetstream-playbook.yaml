@@ -65,6 +65,12 @@
         comment: "Jiahua Zou"
         groups: users,admin,docker
         shell: /bin/bash
+    - user:
+        name: serenajiang
+        uid: 1008
+        comment: "Serena Jiang"
+        groups: users,admin,docker
+        shell: /bin/bash
 
 
 #    - name: Set authorized key took from url
@@ -100,6 +106,10 @@
         user: jiahuazou
         state: present
         key: https://github.com/JiahuaZou.keys
+    - authorized_key:
+        user: serenajiang
+        state: present
+        key: https://github.com/serenajiang.keys
 
     - copy:
         src: charter-school-notebook-server

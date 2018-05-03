@@ -1,3 +1,4 @@
+[![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/jhaber-zz/Charter-school-identities/master)
 # Stratification through organizational identity:
 ## Do charter schools' ideologies reinforce social inequalities?
 

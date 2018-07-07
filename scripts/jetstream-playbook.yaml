@@ -16,7 +16,27 @@
         path: /etc/sudoers.d/90-cloudimg-ubuntu
         line: "%admin ALL=(ALL) NOPASSWD:ALL"
 
+    # TO DO: Automatically delete any occurrences of `%users ALL=(ALL) ALL` that occur in /etc/sudoers (use lineinfile for this?)
+
     # Set up users and groups:
+    - user:
+        name: kruing01
+        uid: 1011
+        comment: "Krutika Ingale"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: kaandgsy
+        uid: 1010
+        comment: "Kaan Dogusoy"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: bylei
+        uid: 1009
+        comment: "Brian Lei"
+        groups: users,admin,docker
+        shell: /bin/bash
     - user:
         name: jhaber
         uid: 1000
@@ -70,10 +90,22 @@
         uid: 1008
         comment: "Serena Jiang"
         groups: users,admin,docker
-        shell: /bin/bash
+        shell: /bin/bash'''
 
 
 #    - name: Set authorized key took from url
+    - authorized_key:   
+        user: kruing01
+        state: present
+        key: https://github.com/krutikaingale.keys
+    - authorized_key:
+        user: kaandgsy
+        state: present  
+        key: https://github.com/kaandogusoy.keys
+    - authorized_key:
+        user: bylei
+        state: present
+        key: https://github.com/bylei.keys
     - authorized_key:
         user: jhaber
         state: present
@@ -117,3 +149,6 @@
         owner: root
         group: root
         mode: 0755
+
+  # This line keeps the procedure from stopping due to users already existing
+  ignore_errors: yes

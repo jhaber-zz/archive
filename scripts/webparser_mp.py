@@ -484,6 +484,13 @@ def dictmatch_file_helper(file, listlists, allmatch_count):
     the variables used to store the number of matches for each term lit (e.g., ess_count, prog_count, rit_count, alldict_count); 
     and the not-matches--that is, the list of words leftover from the file after all matches are removed (e.g., ess_dictless, prog_dictless, rit_dictless, alldict_dictless). """         
     
+    parsed_pagetext = []
+    parsed_pagetext = parsefile_by_tags(file) # Parse page text
+
+    if len(parsed_pagetext) == 0: # Don't waste time adding empty pages
+        logging.warning("    Nothing to parse in " + str(file) + "!")
+        return
+    
     for i in range(len(dictsnames_biglist)): # Iterate over dicts to find matches with parsed text of file
         # For dictsnames_list, dicts are: (ess_dict, prog_dict, rit_dict, alldict_count); count_names are: (ess_count, prog_count, rit_count, alldict_count); dictless_names are: (ess_dictless, prog_dictless, rit_dictless, alldict_dictless)
         # adict,count_name,dictless_name = dictsnames_tupzip[i]
@@ -513,11 +520,13 @@ def dict_bestmatch(folder_path, custom_dict):
     for pagenum in tqdm(range(num_pages), desc="Finding best match:"):
         try:
             page_dict_count,page_weighted_score = -1,-1
+            page_textlist = []
             page_textlist = parsefile_by_tags(file_list[pagenum]) # Parse page with index pagenum into text list
             
             if len(page_textlist)==0: # If page is empty, don't bother with it
-                continue
-
+                logging.warning("    Nothing to parse in " + str(file_list[pagenum]) + "!")
+                continue    
+                
             dictless_text, page_dict_hits = dict_count(page_textlist, custom_dict) # Count matches between custom_dict and page_textlist using dict_count
             numwords = len('\n'.join(page_textlist).split())
             page_weighted_score = page_dict_hits / numwords # Weight score by number of words on page

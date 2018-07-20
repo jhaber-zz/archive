@@ -2,14 +2,18 @@
 
 # Author: Jaren Haber
 # First created: Spring 2018
-# Last updated: Summer 2018
+# Last updated: July 20, 2018
 
-pip install --upgrade pip
-pip install --upgrade pandas
-pip install tqdm
-pip install nltk
-pip install timeout-decorator
-pip install lxml
-pip install boxsdk
-pip install geopandas
-pip install shapely
+pip install --upgrade pip # Get pip up to date
+pip install --upgrade pandas # Get pandas up to date
+pip install tqdm # For pretty progress bar etc
+pip install nltk # For NLP
+pip install timeout-decorator # To limit how long a task can take
+pip install beautifulsoup4 # For reading and parsing web text
+pip install lxml # More efficient BeautifulSoup parser than HTML5
+pip install boxsdk # For Box API
+pip install geopandas # For loading shapefiles, doing GIS with matplotlib
+pip install shapely # For graphs
+pip install gensim # For Word2vec and other NLP things
+pip install seaborn # For beautiful graphs (builds on matplotlib)
+pip install Cython # For parallelizing Word2vec etc

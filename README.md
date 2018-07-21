@@ -5,7 +5,8 @@
 ### Generally useful scripts (in "scripts" folder):
 #### Initializing virtual machine (VM) environments
 - `jetstream-playbook.yaml`: Sets up VM user access permissions, such as with Jetstream. 
-- `init_VM.sh`: Simple script to install essential data science packages to a new VM.
+- `init_VM.sh`: Installs to VM useful packages & modules for extended bash functionality, HTML parsing, text analysis, and data management not available through the default Ubuntu 16.04 VM image on Jetstream.
+- `init_term.sh`: Installs to custom Jupyter notebook (via terminal) useful packages & modules for HTML parsing, text analysis, and data management not available through the default Ubuntu 16.04 VM image on Jetstream.
 - `charter-school-notebook-server`: Creates Jupyter notebook using custom port and `datascience-notebook` docker environment.
 - For more information on configuring such an environment, contact me at jhaber@berkeley.edu. 
 #### Downloading and parsing 
@@ -15,10 +16,9 @@
 - `data_prep.py`: Loads text from files on disk into `Pandas` DataFrame and saves as CSV. Customized to work with large amounts of data and/or computational settings with limited system memory. 
 #### Text analysis
 - `analysis_prelim.ipynb`: Applies various computational text analysis methods (histograms, topic models, word embeddings) to a small sample of charter schools' website texts.
+- `word_embeddings.ipynb`: Uses word2vec in gensim to train a word embeddings model on the full charter web text corpus. Then uses this model to test the convergent validity of a set of custom dictionaries.
 
-### Useful educational data files (in "data" folder):
-- `pubschools_merged_2015.csv`: Complete list of all US public schools open since 1998--the first year information on the population of charter schools was collected. This data is based on the Ed. Dept's Public School Universe Survey (https://nces.ed.gov/ccd/pubschuniv.asp). 
-- `charter_URLs_2016.csv`: List of all charter schools open in the 2016-17 school year, with their URLs and various other information. Also based on the Ed. Dept's data (see link in preceding item). 
+### Useful educational data files: forthcoming
 
 ## Description
 This repo is for data and code related to my dissertation research on charter school identities as analyzed from mission statements (MSs) on their public websites. The code is in Python 3 Jupyter Notebooks and Python scripts.

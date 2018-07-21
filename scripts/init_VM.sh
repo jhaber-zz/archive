@@ -48,6 +48,16 @@ git config --global push.default simple
 # Install Box SDK for working with files
 pip install boxsdk
 
+# Write and call function to import NLP tools from within Python:
+function import_NLP_tools {
+python - <<END
+import nltk
+nltk.download('punkt')
+nltk.download('stopwords')
+END
+}
+import_NLP_tools
+
 # Set user permissions with custom playbook:
 ansible-playbook jetstream-playbook.yaml
 

@@ -1,4 +1,6 @@
-# Simple script to install additional packages to Jetstream VM using Ubuntu 16.04 image
+#!/bin/bash
+
+# Simple shell script to install additional packages to a Jetstream VM based on an Ubuntu 16.04 image
 
 # Author: Jaren Haber
 # First created: Spring 2018
@@ -17,3 +19,14 @@ pip install shapely # For graphs
 pip install gensim # For Word2vec and other NLP things
 pip install seaborn # For beautiful graphs (builds on matplotlib)
 pip install Cython # For parallelizing Word2vec etc
+
+# Write and call function to import NLP tools from within Python:
+function import_NLP_tools {
+python - <<END
+import nltk
+nltk.download('punkt')
+nltk.download('stopwords')
+END
+}
+
+import_NLP_tools

@@ -13,7 +13,7 @@
 # IMPORTING KEY PACKAGES
 import nltk # for natural language processing tools
 import pandas as pd # for working with dataframes
-from pandas.core.groupby.groupby import PanelGroupBy
+#from pandas.core.groupby.groupby import PanelGroupBy # For debugging
 import numpy as np # for working with numbers
 import pickle # For working with .pkl files
 #from tqdm import tqdm # Shows progress over iterations, including in pandas via "progress_apply"
@@ -27,6 +27,14 @@ stopenglish = list(stopwords.words("english")) # assign list of english stopword
 import string # for one method of eliminating punctuation
 punctuations = list(string.punctuation) # assign list of common punctuation symbols
 punctuations+=['•','©','–'] # Add a few more punctuations also common in web text
+from nltk.stem.porter import PorterStemmer # approximate but effective (and common) method of normalizing words: stems words by implementing a hierarchy of linguistic rules that transform or cut off word endings
+stem() = PorterStemmer().stem() # Makes stemming more accessible
+
+# PREP FOR MULTIPROCESSING
+import os # For navigation
+numcpus = len(os.sched_getaffinity(0)) # Detect and assign number of available CPUs
+from multiprocessing import Pool # key function for multiprocessing, to increase processing speed
+pool = Pool(processes=numcpus) # Pre-load number of CPUs into pool function
 
 
 # ## Read in data
@@ -43,7 +51,7 @@ df = pd.read_pickle(charters_path)
 
 #tqdm.pandas(desc="Preprocessing") # To show progress, create & register new `tqdm` instance with `pandas`
 
-def preprocess_wem(tuplist, start, limit):
+def preprocess_wem(tuplist, start, limit): # inputs were formerly: (tuplist, start, limit)
     
     '''This function cleans and tokenizes sentences, removing punctuation and numbers and making lower-case.
     Inputs: list of four-element tuples, the last element of which holds the long string of text we care about;
@@ -73,7 +81,7 @@ def preprocess_wem(tuplist, start, limit):
 
         for chunk in tup[3].split('\n'):
             for sent in sent_tokenize(chunk):
-                words_by_sentence.append(list(word.lower() 
+                words_by_sentence.append(list(stem(word.lower()) 
                                          for word in word_tokenize(sent) 
                                          if not (word in punctuations 
                                                  or word.isdigit() 
@@ -82,8 +90,10 @@ def preprocess_wem(tuplist, start, limit):
                                                  or word=="'s")))
 
         known_pages.add(tup[3])
-        
+    
+    print(str(pcount)) # Print number of school being parsed
     pcount += 1 # Add to counter
+    
     return
 
 
@@ -91,10 +101,24 @@ words_by_sentence = [] # Initialize variable to hold list of lists of words (sen
 pcount=0 # Initialize preprocessing counter
 df["WEBTEXT"] = df["WEBTEXT"].astype(list) # Coerce these to lists in order to avoid type errors
 
-# Call preprocessing function (with progress monitor) on each DF row's list of text tuples:
-df["WEBTEXT"].apply(lambda tups: preprocess_wem(tups, 10, 15))
+# Split DF into numcpus chunks and call preprocess_wem on each using Pool():
+try:
+    chunk_size = int(df.shape[0]/numcpus) # Calculate chunk size as an integer
+    chunks = [df.ix[df.index[i:i + chunk_size]] for i in range(0, df.shape[0], chunk_size)] # Create list holding DF split into chunks (works even if length of DF not evenly divisible by numcpus)
+    
+    #webtext_iter = iter(df["WEBTEXT"]) # Create iterator over df["WEBTEXT"] to pass to Pool()
+    
+    # Use multiprocessing.Pool(numcpus) to run preprocess_wem:
+    if __name__ == '__main__':
+        with Pool(numcpus) as p:
+            p.map(preprocess_wem, chunks) 
+    
+    #df["WEBTEXT"].apply(lambda tups: preprocess_wem(tups, 10, 15))
 
-with open(wem_path, 'wb') as destfile:
-    pickle.dump(words_by_sentence, destfile)
+    with open(wem_path, 'wb') as destfile:
+        pickle.dump(words_by_sentence, destfile)
 
+except Exception as e:
+    print(str(e))
+        
 sys.exit()

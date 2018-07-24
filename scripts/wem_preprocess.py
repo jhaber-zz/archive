@@ -28,7 +28,7 @@ import string # for one method of eliminating punctuation
 punctuations = list(string.punctuation) # assign list of common punctuation symbols
 punctuations+=['•','©','–'] # Add a few more punctuations also common in web text
 from nltk.stem.porter import PorterStemmer # approximate but effective (and common) method of normalizing words: stems words by implementing a hierarchy of linguistic rules that transform or cut off word endings
-stem() = PorterStemmer().stem() # Makes stemming more accessible
+stem = PorterStemmer().stem # Makes stemming more accessible
 
 # PREP FOR MULTIPROCESSING
 import os # For navigation
@@ -51,9 +51,9 @@ df = pd.read_pickle(charters_path)
 
 #tqdm.pandas(desc="Preprocessing") # To show progress, create & register new `tqdm` instance with `pandas`
 
-def preprocess_wem(tuplist, start, limit): # inputs were formerly: (tuplist, start, limit)
+def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
     
-    '''This function cleans and tokenizes sentences, removing punctuation and numbers and making lower-case.
+    '''This function cleans and tokenizes sentences, removing punctuation and numbers and making words into lower-case stems.
     Inputs: list of four-element tuples, the last element of which holds the long string of text we care about;
         an integer limit (bypassed when set to -1) indicating the DF row index on which to stop the function (for testing purposes),
         and similarly, an integer start (bypassed when set to -1) indicating the DF row index on which to start the function (for testing purposes).
@@ -74,7 +74,8 @@ def preprocess_wem(tuplist, start, limit): # inputs were formerly: (tuplist, sta
     if type(tuplist)==float:
         return # Can't iterate over floats, so exit
     
-    print(pcount)
+    #print('Parsing school #' + str(pcount)) # Print number of school being parsed
+
     for tup in tuplist: # Iterate over tuples in tuplist (list of tuples)
         if tup[3] in known_pages or tup=='': # Could use hashing to speed up comparison: hashlib.sha224(tup[3].encode()).hexdigest()
             continue # Skip this page if exactly the same as a previous page on this school's website
@@ -91,7 +92,6 @@ def preprocess_wem(tuplist, start, limit): # inputs were formerly: (tuplist, sta
 
         known_pages.add(tup[3])
     
-    print(str(pcount)) # Print number of school being parsed
     pcount += 1 # Add to counter
     
     return
@@ -101,19 +101,18 @@ words_by_sentence = [] # Initialize variable to hold list of lists of words (sen
 pcount=0 # Initialize preprocessing counter
 df["WEBTEXT"] = df["WEBTEXT"].astype(list) # Coerce these to lists in order to avoid type errors
 
-# Split DF into numcpus chunks and call preprocess_wem on each using Pool():
+# Convert DF into list (of lists of tuples) and call preprocess_wem on element each using Pool():
 try:
-    chunk_size = int(df.shape[0]/numcpus) # Calculate chunk size as an integer
-    chunks = [df.ix[df.index[i:i + chunk_size]] for i in range(0, df.shape[0], chunk_size)] # Create list holding DF split into chunks (works even if length of DF not evenly divisible by numcpus)
-    
-    #webtext_iter = iter(df["WEBTEXT"]) # Create iterator over df["WEBTEXT"] to pass to Pool()
-    
+    weblist = df["WEBTEXT"].tolist() # Convert DF into list to pass to Pool()
+
     # Use multiprocessing.Pool(numcpus) to run preprocess_wem:
+    print("Preprocessing web text into list of sentences...")
     if __name__ == '__main__':
         with Pool(numcpus) as p:
-            p.map(preprocess_wem, chunks) 
+            p.map(preprocess_wem, weblist) 
     
-    #df["WEBTEXT"].apply(lambda tups: preprocess_wem(tups, 10, 15))
+    # Much slower option (no multiprocessing):
+    #df["WEBTEXT"].apply(lambda tups: preprocess_wem(tups))
 
     with open(wem_path, 'wb') as destfile:
         pickle.dump(words_by_sentence, destfile)

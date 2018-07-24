@@ -74,7 +74,7 @@ def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
     if type(tuplist)==float:
         return # Can't iterate over floats, so exit
     
-    #print('Parsing school #' + str(pcount)) # Print number of school being parsed
+    print('Parsing school #' + str(pcount)) # Print number of school being parsed
 
     for tup in tuplist: # Iterate over tuples in tuplist (list of tuples)
         if tup[3] in known_pages or tup=='': # Could use hashing to speed up comparison: hashlib.sha224(tup[3].encode()).hexdigest()
@@ -103,16 +103,16 @@ df["WEBTEXT"] = df["WEBTEXT"].astype(list) # Coerce these to lists in order to a
 
 # Convert DF into list (of lists of tuples) and call preprocess_wem on element each using Pool():
 try:
-    weblist = df["WEBTEXT"].tolist() # Convert DF into list to pass to Pool()
+    #weblist = df["WEBTEXT"].tolist() # Convert DF into list to pass to Pool()
 
     # Use multiprocessing.Pool(numcpus) to run preprocess_wem:
-    print("Preprocessing web text into list of sentences...")
-    if __name__ == '__main__':
-        with Pool(numcpus) as p:
-            p.map(preprocess_wem, weblist) 
+    #print("Preprocessing web text into list of sentences...")
+    #if __name__ == '__main__':
+    #    with Pool(numcpus) as p:
+    #        p.map(preprocess_wem, weblist) 
     
     # Much slower option (no multiprocessing):
-    #df["WEBTEXT"].apply(lambda tups: preprocess_wem(tups))
+    df["WEBTEXT"].apply(lambda tups: preprocess_wem(tups))
 
     with open(wem_path, 'wb') as destfile:
         pickle.dump(words_by_sentence, destfile)

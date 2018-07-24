@@ -4,10 +4,10 @@
 # # Initializing new VM environment with docker, text analysis tools, etc.
 # RUN THIS SCRIPT AS SUPER-USER, i.e: `sudo bash init_VM.sh`
 
-# Install latest python 3, pip, and easy-install:
+# Install latest python 3, pip, and pip3:
 apt-get install python3
 pip install --upgrade pip
-apt-get install python3-pip
+apt-get install python3-pip || curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python3 get-pip.py
 
 # Docker environment:
 #apt-get install docker-machine
@@ -38,12 +38,12 @@ apt install htop # More readable version of top, for process management
 apt install ncdu # Fast, comprehensive disk investigation
 byobu-enable # Make sure window management software is turned on
 
-# Setting up git-LFS:
-curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
-apt-get install git-lfs
-git lfs install
-git lfs track "*.csv" # Possibly add other file types here
-git config --global push.default simple
+# Setting up git-LFS (TO DO: run this only for organization repos):
+#curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+#apt-get install git-lfs
+#git lfs install
+#git lfs track "*.csv" # Possibly add other file types here
+#git config --global push.default simple
 
 # Set user permissions with custom playbook:
 ansible-playbook jetstream-playbook.yaml

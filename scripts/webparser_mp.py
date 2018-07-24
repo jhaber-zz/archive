@@ -197,10 +197,10 @@ def write_counts(file_path, names_list, counts_list):
     
     with open(file_path, 'w') as file_handler:
         for tup in zip(names_list,counts_list): # iterate over zipped list of tuples
-            if tup != list(zip(names_list,counts_list))[-1]:
-                file_handler.write("{} {}\n".format(tup[0],tup[1]))
-            else:
+            if tup == list(zip(names_list,counts_list))[-1]: # If last line, don't add newline
                 file_handler.write("{} {}".format(tup[0],tup[1]))
+            else:
+                file_handler.write("{} {}\n".format(tup[0],tup[1]))
         return
 
     
@@ -484,6 +484,13 @@ def dictmatch_file_helper(file, listlists, allmatch_count):
     the variables used to store the number of matches for each term lit (e.g., ess_count, prog_count, rit_count, alldict_count); 
     and the not-matches--that is, the list of words leftover from the file after all matches are removed (e.g., ess_dictless, prog_dictless, rit_dictless, alldict_dictless). """         
     
+    parsed_pagetext = []
+    parsed_pagetext = parsefile_by_tags(file) # Parse page text
+
+    if len(parsed_pagetext) == 0: # Don't waste time adding empty pages
+        logging.warning("    Nothing to parse in " + str(file) + "!")
+        return
+    
     for i in range(len(dictsnames_biglist)): # Iterate over dicts to find matches with parsed text of file
         # For dictsnames_list, dicts are: (ess_dict, prog_dict, rit_dict, alldict_count); count_names are: (ess_count, prog_count, rit_count, alldict_count); dictless_names are: (ess_dictless, prog_dictless, rit_dictless, alldict_dictless)
         # adict,count_name,dictless_name = dictsnames_tupzip[i]
@@ -496,9 +503,92 @@ def dictmatch_file_helper(file, listlists, allmatch_count):
                      ", a total thus far of " + str(allmatch_count) + " matches...")
                   
     return listlists,allmatch_count
-                  
+
+
+def dict_bestmatch(folder_path, custom_dict):
+    """Parse through all .html files in folder_path, detecting matches with custom_dict,
+    to find and return the full text from the html page that has the most matches with that dictionary."""
+    
+    # Initialization
+    file_list = list_files(folder_path, ".html") # Get full list of file paths
+    num_pages = len(file_list) # Number of pages in school's folder
+    max_page_hits = (-1,-1) # Initialize tuple holding #hits, page number for HTML file with greatest # matches with custom_dict 
+    max_weighted_score = (-1,-1) # Same as previous, but weighted by page length
+    max_hit_text,max_score_text = [],[] # Empty lists for each best matching pages
+    
+    # Parse through pages to find maximum number of hits of custom_dict on any page
+    for pagenum in tqdm(range(num_pages), desc="Finding best match:"):
+        try:
+            page_dict_count,page_weighted_score = -1,-1
+            page_textlist = []
+            page_textlist = parsefile_by_tags(file_list[pagenum]) # Parse page with index pagenum into text list
+            
+            if len(page_textlist)==0: # If page is empty, don't bother with it
+                logging.warning("    Nothing to parse in " + str(file_list[pagenum]) + "!")
+                continue    
+                
+            dictless_text, page_dict_hits = dict_count(page_textlist, custom_dict) # Count matches between custom_dict and page_textlist using dict_count
+            numwords = len('\n'.join(page_textlist).split())
+            page_weighted_score = page_dict_hits / numwords # Weight score by number of words on page
+            logging.info("Found" + str(page_dict_hits) + "for page #" + str(pagenum) + "and " + str(page_dict_hits) + "weighting for the " + numwords + " words on that page.")
+
+            if page_dict_hits > max_page_hits[0]: # Compare matches for this page with overall max
+                max_page_hits = (page_dict_hits, pagenum) # If its greater, then make new page the max
+            if page_weighted_score > max_weighted_score[0]: # Same as previous two lines, but weighted by page length
+                max_weighted_score = (page_weighted_score, pagenum)
+
+        except Exception as e:
+            logging.debug("    ERROR counting dict matches in page #" + str(pagenum))
+            logging.debug(str(e))
+            continue
+                    
+    logging.info("Number matches and index of best matching page: " + str(max_page_hits[0]) + " " + str(max_page_hits[1]))
+    logging.info("Number matches and index of best WEIGHTED matching page: " + str(max_weighted_score[0]) + " " + str(max_weighted_score[1]))
+    
+    # Use pagenum to get text for page with highest number of hits and weighted score:
+    max_hit_text = parsefile_by_tags(file_list[max_page_hits[1]])
+    max_score_text = parsefile_by_tags(file_list[max_weighted_score[1]])
+    
+    logging.info("Page with the highest number of dictionary hits:\n\n" + str(max_hit_text))
+    logging.info("Page with the highest weighted score:\n\n" + str(max_score_text))
+    
+    return max_hit_text,max_score_text
+
 
 # ### Define parsing helper functions
+
+def clean_text(txt): 
+    '''Takes in a string and cleans string. 
+    TO DO: Spell check in Python?'''
+    
+    # Get rid of different things we don't want:'\\n', '\\randoms\\' (e.g., '\\x0bNyI' in '\\x0bNyI\\'), "\'", "\\",
+    # also each of ,[]{}&/\:<()*d!.'-"_ (where d indicates digits)
+    # pat1 = re.compile("\\\\n|\\\\[A-Za-z0-9_-]+|\\'|,|\\\\|\[|\]|\{|\}|\$|\&|\/|\||\:|\<|\(|\)|\*|\d|\!|\.|'|-|\"|_")
+    pat1 = re.compile("\\\\n|\\\\[A-Za-z0-9_-]+|\\\\|'[|\\|\[|\]|[|]|\{|\}|\$|\&|\/|\||\:|\<|\(|\)|\*|\d|\!|-|\"|_|>>|\>|\>>|\>\>")
+    #pat1 = re.compile("\\\\[A-Za-z0-9_-]+|\\'\\")
+    cleaned = re.sub(pat1, " ", txt)
+    
+    # Get rid of words less than 3 letters 
+    #pat2 = re.compile("\\b[a-zA-Z]{1,3}\\b")
+    # Get rid of words of one character long other than a, A, i, or I
+    pat2 = re.compile("\\b[b-hj-zB-HJ-Z]\\b")
+    cleaned = re.sub(pat2, " ", cleaned)
+    
+    # Get rid of extra spaces
+    pat3 = re.compile("\s+")
+    cleaned = re.sub(pat3, " ", cleaned
+    
+    # Clean up spaces at beginning and end of strings
+    pat4 = re.compile("' ")
+    pat5 = re.compile(" ',")
+    cleaned = re.sub(pat5, " ", re.sub(pat4, " ", cleaned))
+    
+    # Lower case. 
+    #c = c.lower()
+    #c = re.sub(pat3, " ", a)
+
+    return cleaned
+
 
 def parsefile_by_tags(HTML_file):
     
@@ -528,7 +618,12 @@ logging.info("Output of parsefile_by_tags:\n" + str(parsefile_by_tags(example_fi
     
 @timeout_decorator.timeout(20, use_signals=False)
 def parse_file_helper(file, webtext, keys_tuple, keys_vars, dicts_tuple, dicts_vars):
-    """Parses file into (visible) webtext, both as raw webtext and filtered by keywords (held in keys_tuple) into the corresponding list of strings in keys_vars."""
+    """Parses file into (visible) webtext, both as raw webtext and filtered by keywords (held in keys_tuple and dicts_tuple) 
+    into the corresponding list of strings (held in keys_vars and dicts_vars). 
+    
+    keys_tuple and dicts_tuple are tuples of lists, as follows:
+    keys_tuple = tuple([mission_keywords, curriculum_keywords, philosophy_keywords, history_keywords, about_keywords, all_keywords])
+    dicts_tuple = tuple([ess_dict,prog_dict,rit_dict,all_ideol,all_dicts])"""
     
     parsed_pagetext = []
     parsed_pagetext = parsefile_by_tags(file) # Parse page text
@@ -562,7 +657,7 @@ def filter_dict_page(pagetext_list, keyslist):
         lowercasestring = str(string).lower() # lower-case string...
         dict_list = [key.lower() for key in list(keyslist)] # ...compared with lower-case element of keyslist
         for key in dict_list:
-            if key in lowercasestring and key in lowercasestring.split(' '): # Check that the word is the whole word not part of another one
+            if key in lowercasestring and key in lowercasestring.split(' '): # Check that the word is the whole word, rather than part of only one word in a multi-word expression
                 filteredtext.append(string)
 
     return filteredtext
@@ -571,7 +666,7 @@ def filter_dict_page(pagetext_list, keyslist):
 logging.info("Output of filter_keywords_page with keywords:\n" + str(filter_dict_page(example_textlist, all_keywords)))   
 logging.info("Output of filter_keywords_page with ideology words:\n\n" + str(filter_dict_page(example_textlist, all_ideol)))
 
-
+                     
 def parse_school(schooltup):
     
     """This core function parses webtext for a given school. Input is tuple: (name, address, url).
@@ -632,15 +727,25 @@ def parse_school(schooltup):
     
     logging.info("Preliminary tests passed. Parsing data in " + str(school_folder) + "...")
     
-    # Next, initialize local (within-function) variables for text output
-    webtext,keywords_text,ideology_text = [],[],[],[] # text category lists
     file_list = [] # list of HTML files in school_folder
     
+    # Next, initialize local (within-function) variables for text output
+    webtext = [] # Raw, unfiltered text from website (after parsing)
+    mission_text,curriculum_text,philosophy_text,history_text,about_text,allkeys_text = [],[],[],[],[],[] # keyword text lists
+    prog_text,ess_text,rit_text,allideol_text,alldicts_text = [],[],[],[],[] # ideology text lists
+    
+    # Initialize lists of text-storing variables for text matching--along with list of text file names for output
+    keys_vars = [mission_text,curriculum_text,philosophy_text,history_text,about_text,allkeys_text]
+    keysfiles_list = ["mission_text.txt","curr_text.txt","phil_text.txt","hist_text.txt","about_text.txt","allkeys_text.txt"]
+    dicts_vars = [prog_text,ess_text,rit_text,allideol_text,alldicts_text]
+    dictsfiles_list = ["prog_text.txt","ess_text.txt","rit_text.txt","allideol_text.txt","alldicts_text.txt"]
+    
+    # Initialize counts and  unmatched lists...
+    # The latter will later help us revise the dictionaries by looking at what content words were not counted by current dictionaries
     mission_count,curriculum_count,philosophy_count,history_count,about_count,keywords_count,allkey_matches = 0,0,0,0,0,0,0 # matched keyword counts
     mission_dictless,curriculum_dictless,philosophy_dictless,history_dictless,about_dictless,keywords_dictless = [],[],[],[],[],[] # lists of words not matched for each keyword list
     ess_count, prog_count, rit_count, allideol_count, alldict_count, alldict_matches = 0,0,0,0,0,0 # dict match counts
     ess_dictless, prog_dictless, rit_dictless, allideol_dictless, alldict_dictless = [],[],[],[],[] # lists of words not matched for each dictionary
-    # Initialize counts and  unmatched lists so later we can revise the dictionaries by looking at what content words were not counted by current dictionaries
 
     keysnames_list = [mission_count,curriculum_count,philosophy_count,history_count,about_count,keywords_count] # list holding match counts per keywords list
     keylessnames_list = [mission_dictless,curriculum_dictless,philosophy_dictless,history_dictless,about_dictless,keywords_dictless] # list of terms not matched to each list of keywords
@@ -671,7 +776,7 @@ def parse_school(schooltup):
         file_list = list_files(school_folder, ".html") # Get list of HTML files in school_folder
             
         if file_list==(None or school_folder or "" or []) or not file_list or len(file_list)==0:
-            logging.info("No .html files found. Aborting parser for " + str(school_name) + "...")
+            logging.warning("No .html files found. Aborting parser for " + str(school_name) + "...")
             wget_fail_flag = 1
             write_errors(error_file, duplicate_flag, parse_error_flag, wget_fail_flag, file_count)
             write_counts(counts_file, ["ess_count","prog_count","rit_count"], [0,0,0]) # empty counts file simplifies parsing
@@ -683,11 +788,7 @@ def parse_school(schooltup):
                     
             # Parse and categorize page text:
             try:                    
-                # TO DO: Correct these inputs
-                keys_vars = []
-                dicts_vars = []
-                webtext, keys_vars, dicts_vars = parse_file_helper(file, webtext, keys_tuple, keys_vars, dicts_tuple, dicts_vars )
-                        
+                webtext, keys_vars, dicts_vars = parse_file_helper(file, webtext, keys_tuple, keys_vars, dicts_tuple, dicts_vars)
                 file_count+=1 # add to count of parsed files
 
             except Exception as e:
@@ -699,18 +800,24 @@ def parse_school(schooltup):
                 keysnames_biglist, keys_matches = dictmatch_file_helper(file, keysnames_biglist, allkey_matches)
 
             except Exception as e:
-                logging.info("ERROR! Failed to count number of dict matches while parsing " + str(file) + "...\n" + str(e))
+                logging.error("ERROR! Failed to count number of dict matches while parsing " + str(file) + "...\n" + str(e))
                     
         # Report and save output to disk:
         parsed.append(school_URL)
-        file_count = int(file_count-1)
+        file_count = int(file_count) # Subtract 1?
+        logging.info("  PARSED " + str(file_count) + " .html file(s) from website of " + str(school_name) + "...")
         print("  PARSED " + str(file_count) + " .html file(s) from website of " + str(school_name) + "...")
+        
+        try:
+            write_list(school_folder + keysfiles_list[i], keys_vars[i]) for i in range(len(keys_vars))
+            write_list(school_folder + dictsfiles_list[i], dicts_vars[i]) for i in range(len(dicts_vars))
             
-        write_list(school_folder + "webtext.txt", webtext)
-        write_list(school_folder + "keywords_text.txt", keywords_text)
-        write_list(school_folder + "ideology_text.txt", ideology_text)
+        except Exception as e:
+            logging.debug("ERROR! Failed to save text output files. Debug this NOW!")
+            print("ERROR! Failed to save text output files. Debug this NOW!")
+            sys.exit()
             
-        print("  Found " + str(all_matches) + " total dictionary matches and " + str(len(dictsnames_biglist[3][2])) + " uncounted words for " + str(school_name) + "...")
+        logging.info("  Found " + str(all_matches) + " total dictionary matches and " + str(len(dictsnames_biglist[3][2])) + " uncounted words for " + str(school_name) + "...")
 
         write_counts(counts_file, ["ess_count","prog_count","rit_count"], [dictsnames_biglist[0][1], dictsnames_biglist[1][1], dictsnames_biglist[2][1]])
         write_list(school_folder + "dictless_words.txt", dictsnames_biglist[3][2])

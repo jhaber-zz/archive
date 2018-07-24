@@ -2,18 +2,41 @@
 # run this script as: `sudo ansible-playbook jetstream-playbook.yaml`
 # run this first: `sudo ansible-galaxy install cmprescott.chrome`
 
-# TO DO: have this script add the following lines to /etc/sudoers.d/90-cloud-init-users
-#jhaber ALL=(ALL) NOPASSWD:ALL
-#bradafza ALL=(ALL) NOPASSWD:ALL
-#sujaksh ALL=(ALL) NOPASSWD:ALL
-#arjuns ALL=(ALL) NOPASSWD:ALL
-#harshayu ALL=(ALL) NOPASSWD:ALL
-#maxyuan ALL=(ALL) NOPASSWD:ALL
 
 - hosts: localhost
   roles:
      - { role: cmprescott.chrome, become: yes }
   tasks:
+    # Check if user permissions for passwordless sudo are set up correctly:
+    - lineinfile:
+        path: /etc/sudoers.d/90-cloud-init-users
+        line: "%admin ALL=(ALL) NOPASSWD:ALL"
+
+    - lineinfile:
+        path: /etc/sudoers.d/90-cloudimg-ubuntu
+        line: "%admin ALL=(ALL) NOPASSWD:ALL"
+
+    # TO DO: Automatically delete any occurrences of `%users ALL=(ALL) ALL` that occur in /etc/sudoers (use lineinfile for this?)
+
+    # Set up users and groups:
+    - user:
+        name: kruing01
+        uid: 1011
+        comment: "Krutika Ingale"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: kaandgsy
+        uid: 1010
+        comment: "Kaan Dogusoy"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: bylei
+        uid: 1009
+        comment: "Brian Lei"
+        groups: users,admin,docker
+        shell: /bin/bash
     - user:
         name: jhaber
         uid: 1000
@@ -53,12 +76,36 @@
     - user:
         name: maxyuan
         uid: 1006
-        comment: "MaxYuan"
+        comment: "Max Yuan"
         groups: users,admin,docker
         shell: /bin/bash
+    - user:
+        name: jiahuazou
+        uid: 1007
+        comment: "Jiahua Zou"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: serenajiang
+        uid: 1008
+        comment: "Serena Jiang"
+        groups: users,admin,docker
+        shell: /bin/bash'''
 
 
 #    - name: Set authorized key took from url
+    - authorized_key:   
+        user: kruing01
+        state: present
+        key: https://github.com/krutikaingale.keys
+    - authorized_key:
+        user: kaandgsy
+        state: present  
+        key: https://github.com/kaandogusoy.keys
+    - authorized_key:
+        user: bylei
+        state: present
+        key: https://github.com/bylei.keys
     - authorized_key:
         user: jhaber
         state: present
@@ -80,13 +127,21 @@
         state: present
         key: https://github.com/ajgokhale.keys
     - authorized_key:
+        user: aculich
+        state: present
+        key: https://github.com/aculich.keys
+    - authorized_key:
         user: maxyuan
         state: present
         key: https://github.com/MaxYuan85.keys
     - authorized_key:
-        user: aculich
+        user: jiahuazou
         state: present
-        key: https://github.com/aculich.keys
+        key: https://github.com/JiahuaZou.keys
+    - authorized_key:
+        user: serenajiang
+        state: present
+        key: https://github.com/serenajiang.keys
 
     - copy:
         src: charter-school-notebook-server
@@ -94,4 +149,6 @@
         owner: root
         group: root
         mode: 0755
-  
+
+  # This line keeps the procedure from stopping due to users already existing
+  ignore_errors: yes

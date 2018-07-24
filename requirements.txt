@@ -1,0 +1,18 @@
+# Scraping web content and URLs:
+bs4
+lxml
+google
+https://github.com/slimkrazy/python-google-places/zipball/master
+selenium
+
+# Processing text:
+nltk
+pandas
+tqdm
+sklearn
+gensim
+scipy
+timeout_decorator
+
+# Working with files:
+boxsdk

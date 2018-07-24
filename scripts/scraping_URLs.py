@@ -148,6 +148,9 @@ def getURL(school_name, address, bad_sites_list, manual_url):
                 if any(domain in url for domain in bad_sites_list):
                     k+=1    # If this url is in bad_sites_list, add 1 to counter and move on
                     #print("  URL in Google Places API is a bad site. Moving on.")
+                    continue
+                  
+                # TO DO: If URL contains the words "location", "campus", "contact", or "our-school"/"our_school"/"ourschool", or if it has more then 3 "/" characters, then set "CHECK"=1. 
 
                 else:
                     good_url = url
@@ -190,6 +193,10 @@ def getURL(school_name, address, bad_sites_list, manual_url):
             if any(domain in url for domain in bad_sites_list):
                 k+=1    # If this url is in bad_sites_list, add 1 to counter and move on
                 #print("  Bad site detected. Moving on.")
+                continue
+            
+            # TO DO: If URL contains the words "location", "campus", "contact", or "our-school"/"our_school"/"ourschool", or if it has more then 3 "/" characters, then set "CHECK"=1.
+            
             else:
                 good_url = url
                 logging.info("    Success! URL obtained by Google search with " + str(k) + " bad URLs avoided.")

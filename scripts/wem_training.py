@@ -95,7 +95,7 @@ else:
         # Save data for later
         with open(phrasesent_path, 'wb') as destfile:
             gc.disable() # Disable garbage collector to increase speed
-            cPickle.dump(tqdm(words_by_sentence, desc="Saving phrase data"), destfile)
+            cPickle.dump(words_by_sentence, destfile)
             gc.enable() # Enable garbage collector again
 
     except Exception as e:

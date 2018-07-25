@@ -1,24 +1,31 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# Word Embedding Models: Preprocessing
-# Project title: Charter school identities 
+# Word Embedding Models: Training using word2vec in gensim
+# Project title: Charter school identities
 # Creator: Jaren Haber, PhD Candidate
 # Institution: Department of Sociology, University of California, Berkeley
 # Date created: July 20, 2018
+# Date last modified: July 24, 2018
 
+# For more code see: https://github.com/jhaber-zz/Charter-school-identities
 
 # ## Initialize Python
 
-# Import key packages
+# Import packages
 import gensim # For word embedding models
 from gensim.models.phrases import Phrases # Makes word2vec more robust: Looks not just at  To look for multi-word phrases within word2vec
 import Cython # For parallelizing word2vec
 import numpy as np # For working with numbers
 import pickle # For working with .pkl files
+import _pickle as cPickle # Optimized version of pickle
+import gc # For managing garbage collector
+import os # For navigating file trees
 import sys # For shell utilities like terminating script
-from timeit import timeit # For counting length of process
+import timeit # For counting time taken for a process
 from tqdm import tqdm # Shows progress over iterations
+from nltk.corpus import stopwords # for eliminating stop words
+stopenglish = list(stopwords.words("english")) # assign list of english stopwords
 
 
 # ## Read in data
@@ -26,30 +33,78 @@ from tqdm import tqdm # Shows progress over iterations
 # Define file paths
 charters_path = "../../charters_full_2015.pkl" # All text data; only charter schools (regardless if open or not)
 wordsent_path = "../data/wem_data.pkl"
-wem_model = "../data/wem_model.txt"
+phrasesent_path = "../data/wem_data_phrases.pkl"
+wem_path = "../data/wem_model.txt"
+
+if os.path.exists(phrasesent_path): # Check if phrase data already exists, to save time
+    phrased = True
+else:
+    phrased = False
 
 # Load in list of lists of words, where each list of words represents a sentence in its original order
-with open(wem_path, 'rb') as readfile:
-    words_by_sentence = pickle.load(readfile)
-    
-datalen = len(words_by_sentence) # Set length of data for reference when modeling
 
+words_by_sentence = [] # Initialize variable holding list of sentences
+
+def load_cpickle_gc():
+    '''Very time-efficient way to load pickle-formatted objects into Python.
+    Uses C-based pickle (cPickle) and gc workarounds to facilitate speed. 
+    Input: Filepath to pickled (*.pkl) object.
+    Output: Python object (probably a list of sentences or something similar).'''
+
+    global words_by_sentence # Give access to variable storing list of sentences
+
+    if phrased:
+        output = open(phrasesent_path, 'rb')
+    else:
+        output = open(wordsent_path, 'rb')
+    gc.disable() # disable garbage collector
+
+    words_by_sentence = cPickle.load(output)
+
+    gc.enable() # enable garbage collector again
+    output.close()
+
+if __name__ == '__main__':
+    print("Loading list of sentences...")
+    t = timeit.Timer(stmt="load_cpickle_gc()", globals=globals())
+    print(round(t.timeit(1),4),'\n')
+
+# Slower alternative for loading file:
+#with open(wordsent_path, 'rb') as readfile:
+#    print("Loading list of sentences...")
+#    words_by_sentence = timeit(pickle.load(readfile))
+    
 
 # ## Prep for word2vec with common phrases
 
-try:
-    #print("Parsing phrases in list of sentences...")
-    phrases = Phrases(words_by_sentence, min_count=3, delimiter=b'_', common_terms=stopenglish) # Detect phrases in sentences based on collocation counts
-    sent = phrases(sent) for sent in tqdm(words_by_sentence, desc="Parsing phrases") # Apply phrase detection model to each sentence in data
+if phrased: # Check if phrased data already exists. If so, don't bother recalculating it
+    pass
 
-    # Take a look at the data 
-    print("Sample of the first 50 sentences:")
-    print(words_by_sentence[:50])
+else:
 
-except Exception as e:
-    print(str(e))
-    sys.exit()
-    
+    try:
+        print("Detecting and parsing phrases in list of sentences...")
+        phrases = Phrases(tqdm(words_by_sentence,desc="Detecting phrases"), min_count=3, delimiter=b'_', common_terms=stopenglish) # Detect phrases in sentences based on collocation counts
+        words_by_sentence = [phrases[sent] for sent in tqdm(words_by_sentence, desc="Parsing phrases")] # Apply phrase detection model to each sentence in data
+
+    except Exception as e:
+        print(str(e))
+        sys.exit()
+
+    try:
+        # Save data for later
+        with open(phrasesent_path, 'wb') as destfile:
+            gc.disable() # Disable garbage collector to increase speed
+            cPickle.dump(tqdm(words_by_sentence, desc="Saving phrase data"), destfile)
+            gc.enable() # Enable garbage collector again
+
+    except Exception as e:
+        print(str(e))
+
+# Take a look at the data 
+    print("Sample of the first 200 sentences:")
+    print(words_by_sentence[:200])
+
 
 # ## Train Word Embeddings Model with word2vec in gensim
 
@@ -63,7 +118,7 @@ Word2Vec parameter choices explained:
 - min_alpha = 0.001: Learning rate linearly decreases to this value over time, so learning happens more strongly at first
 - iter = 5: Five passes/iterations over the dataset
 - batch_words = 10000: During each pass, sample batch size of 10000 words
-- workers = 44: Parallelize model training across the 44 vCPUs of the XXL Jetstream VM (set to 1 to guarantee reproducibility, but with this much data, speed matters)
+- workers = 1: Set to 1 to guarantee reproducibility, OR accelerate by parallelizing model training across the 44 vCPUs of the XXL Jetstream VM
 - seed = 43: To increase reproducibility of model training 
 - negative = 5: Draw 5 "noise words" in negative sampling in order to simplify weight tweaking
 - ns_exponent = 0.75: Shape negative sampling distribution using 3/4 power, which outperforms other exponents (as popularized by original word2vec paper, Mikolov et al 2013) and slightly weights against high-frequency words (1 is exact frequencies, 0 is all words equally)
@@ -71,25 +126,24 @@ Word2Vec parameter choices explained:
 
 # Train the model with above parameters:
 try:
-    print("Training word2vec model...")
-    timeit(model = gensim.models.Word2Vec(words_by_sentence, size=200, window=6, min_count=3, sg=1, alpha=0.025, min_alpha=0.001, iter=5, batch_words=10000, workers=44, seed=43, negative=5, ns_exponent=0.75))
-    
+    model = gensim.models.Word2Vec(tqdm(words_by_sentence, desc="Training word2vec  model"), size=200, window=6, min_count=3, sg=1, alpha=0.025, min_alpha=0.001,\
+                                   iter=5, batch_words=10000, workers=1, seed=43, negative=5, ns_exponent=0.75)
     print("word2vec model TRAINED successfully!")
 
     # Save model for later:
-    with open(wem_model, 'wb') as destfile:
+    with open(wem_path, 'wb') as destfile:
         try:
             model.wv.save_word2vec_format(destfile)
+            print("word2vec model SAVED to " + str(destfile))
         except Exception as e:
             print(str(e))
-            print("Trying other save option...")
             try:
                 model.save(destfile)
-                
-    print("word2vec model SAVED to " + str(destfile))
-                
+                print("word2vec model SAVED to " + str(wem_path))
+            except Exception as e:
+                print(str(e))
+
 except Exception as e:
     print(str(e))
-    
 
 sys.exit() # Kill script when done, just to be safe

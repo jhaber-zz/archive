@@ -216,10 +216,18 @@ else:
     
     # Use quickpickle to dump data into pickle file
     try:
+<<<<<<< HEAD
         if __name__ == '__main__':
             print("Saving list of tokenized, phrased sentences to file...")
             t = timeit.Timer(stmt="quickpickle_dump(tqdm(words_by_sentence, desc='Saving data'), wemdata_path)", globals=globals())
             print("Time elapsed saving data: " + str(round(t.timeit(1),4)),'\n')
+=======
+        # Save data for later
+        with open(phrasesent_path, 'wb') as destfile:
+            gc.disable() # Disable garbage collector to increase speed
+            cPickle.dump(words_by_sentence, destfile)
+            gc.enable() # Enable garbage collector again
+>>>>>>> a3474f6a054308e6c3ded1dec2e49c9384455bad
 
     except Exception as e:
         print(str(e), "\nTrying backup save option...")

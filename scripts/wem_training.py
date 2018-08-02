@@ -24,6 +24,7 @@ import gc # For managing garbage collector
 import timeit # For counting time taken for a process
 
 # Import packages for cleaning, tokenizing, and stemming text
+from unicodedata import normalize # for cleaning text by converting unicode character encodings into readable format
 from nltk import word_tokenize, sent_tokenize # widely used text tokenizer
 from nltk.stem.porter import PorterStemmer # an approximate method of stemming words (it just cuts off the ends)
 from nltk.corpus import stopwords # for eliminating stop words
@@ -135,9 +136,10 @@ def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
         if tup[3] in known_pages or tup=='': # Could use hashing to speed up comparison: hashlib.sha224(tup[3].encode()).hexdigest()
             continue # Skip this page if exactly the same as a previous page on this school's website
 
-        for chunk in tup[3].split('\n'):
-            for sent in sent_tokenize(chunk):
-                words_by_sentence.append(list(stem(word.lower()) 
+        for chunk in tup[3].split('\n'): #.split('\x').replace('\xa0','').replace('\x92',''):
+            for sent in sent_tokenize(chunk): # Clean up words: lower-case; remove unicode spaces ('\xa0'),tabs ('\t'), end-dashes, and any other leftovers ('\u*', '\x*', '\b*')
+                words_by_sentence.append(list(stem(re.sub(r"\\x.*|\\u.*|\\b.*|-$", "", 
+                                                          word.lower().replace(u"\xa0", u" ").replace(u"\\t", u" "))) 
                                          for word in word_tokenize(sent) 
                                          if not (word in punctuations 
                                                  or word.isdigit() 
@@ -216,18 +218,16 @@ else:
     
     # Use quickpickle to dump data into pickle file
     try:
-<<<<<<< HEAD
         if __name__ == '__main__':
             print("Saving list of tokenized, phrased sentences to file...")
             t = timeit.Timer(stmt="quickpickle_dump(tqdm(words_by_sentence, desc='Saving data'), wemdata_path)", globals=globals())
             print("Time elapsed saving data: " + str(round(t.timeit(1),4)),'\n')
-=======
+                                         
         # Save data for later
         with open(phrasesent_path, 'wb') as destfile:
             gc.disable() # Disable garbage collector to increase speed
             cPickle.dump(words_by_sentence, destfile)
             gc.enable() # Enable garbage collector again
->>>>>>> a3474f6a054308e6c3ded1dec2e49c9384455bad
 
     except Exception as e:
         print(str(e), "\nTrying backup save option...")

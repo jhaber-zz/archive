@@ -16,6 +16,12 @@
         path: /etc/sudoers.d/90-cloudimg-ubuntu
         line: "%admin ALL=(ALL) NOPASSWD:ALL"
 
+    # Remove line (usually at end of file) that would negate passwordless sudo access for all admins
+    - lineinfile:
+        path: /etc/sudoers
+        regexp: '^%users ALL=(ALL) ALL'
+        state: absent
+
     # TO DO: Automatically delete any occurrences of `%users ALL=(ALL) ALL` that occur in /etc/sudoers (use lineinfile for this?)
 
     # Set up users and groups:

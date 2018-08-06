@@ -142,6 +142,8 @@ def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
                                                           word.lower().replace(u"\xa0", u" ").replace(u"\\t", u" "))) 
                                          for word in word_tokenize(sent) 
                                          if not (word in punctuations 
+                                                 or "http" in word
+                                                 or "www" in word
                                                  or word.isdigit() 
                                                  or word.replace('-','').isdigit() 
                                                  or word.replace('.','').isdigit()

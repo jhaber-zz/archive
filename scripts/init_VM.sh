@@ -38,6 +38,7 @@ pip3 install Cython
 apt install htop # More readable version of top, for process management
 apt install ncdu # Fast, comprehensive disk investigation
 byobu-enable # Make sure window management software is turned on
+chmod 1777 ../../*
 
 # Setting up git-LFS (TO DO: run this only for organization repos):
 #curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash

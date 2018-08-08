@@ -24,6 +24,7 @@ import gc # For managing garbage collector
 import timeit # For counting time taken for a process
 
 # Import packages for cleaning, tokenizing, and stemming text
+import re # For parsing text
 from unicodedata import normalize # for cleaning text by converting unicode character encodings into readable format
 from nltk import word_tokenize, sent_tokenize # widely used text tokenizer
 from nltk.stem.porter import PorterStemmer # an approximate method of stemming words (it just cuts off the ends)
@@ -48,22 +49,30 @@ import Cython # For parallelizing word2vec
 # ## Read in data
 
 # Define file paths
-charters_path = "../../charters_full_2015.pkl" # All text data; only charter schools (regardless if open or not)
+charters_path = "../../charters_full_2015_15_250.pkl" # All text data; only charter schools (regardless if open or not)
 wordsent_path = "../data/wem_wordsent_data.pkl"
 phrasesent_path = "../data/wem_phrasesent_data.pkl"
-wemdata_path = "../data/wem_data.pkl"
+#wemdata_path = "../data/wem_data.pkl"
 model_path = "../data/wem_model.txt"
 
-if os.path.exists(wordsent_path): # Check if phrase data already exists, to save time
-    sented = True
-else:
+# Check if sentences data already exists, to save time
+try:
+    if (os.path.exists(wordsent_path)) and (os.path.getsize(wordsent_path) > 10240): # Check if file not empty (at least 10K)
+        print("Existing sentence data detected at " + str(os.path.abspath(wordsent_path)) + ", skipping preprocessing sentences.")
+        sented = True
+    else:
+        sented = False
+except FileNotFoundError or OSError: # Handle common errors when calling os.path.getsize() on non-existent files
     sented = False
 
-if os.path.exists(phrasesent_path): # Check if phrase data already exists, to save time
-    phrased = True
-    print("Existing file detected at " + str(os.path.abspath(phrasesent_path)) + ", preprocessing already done? Aborting.")
-    sys.exit()
-else:
+# Check if sentence phrases data already exists, to save time
+try:
+    if (os.path.exists(phrasesent_path)) and (os.path.getsize(phrasesent_path) > 10240): # Check if file not empty (at least 10K)
+        print("Existing sentence + phrase data detected at " + str(os.path.abspath(phrasesent_path)) + ", skipping preprocessing sentence phrases.")
+        phrased = True
+    else:
+        phrased = False
+except FileNotFoundError or OSError: # Handle common errors when calling os.path.getsize() on non-existent files
     phrased = False
 
 # Load charter data into DF
@@ -74,21 +83,20 @@ gc.enable() # enable garbage collector again
 
 # ## Define helper functions
 
-def quickpickle_load(picklepath, outputvar):
+def quickpickle_load(picklepath):
     '''Very time-efficient way to load pickle-formatted objects into Python.
     Uses C-based pickle (cPickle) and gc workarounds to facilitate speed. 
     Input: Filepath to pickled (*.pkl) object.
     Output: Python object (probably a list of sentences or something similar).'''
 
-    output = open(picklepath, 'rb')
-    gc.disable() # disable garbage collector
-
-    outputvar = cPickle.load(output)
-
-    gc.enable() # enable garbage collector again
-    output.close()
+    with open(picklepath, 'rb') as loadfile:
+        
+        gc.disable() # disable garbage collector
+        outputvar = cPickle.load(loadfile) # Load from picklepath into outputvar
+        gc.enable() # enable garbage collector again
     
     return outputvar
+
 
 def quickpickle_dump(dumpvar, picklepath):
     '''Very time-efficient way to dump pickle-formatted objects from Python.
@@ -96,13 +104,23 @@ def quickpickle_dump(dumpvar, picklepath):
     Input: Python object (probably a list of sentences or something similar).
     Output: Filepath to pickled (*.pkl) object.'''
 
-    output = open(picklepath, 'rb')
-    gc.disable() # disable garbage collector
-
-    cPickle.dump(dumpvar)
-
-    gc.enable() # enable garbage collector again
-    output.close()
+    with open(picklepath, 'wb') as destfile:
+        
+        gc.disable() # disable garbage collector
+        cPickle.dump(dumpvar, destfile) # Dump dumpvar to picklepath
+        gc.enable() # enable garbage collector again
+    
+    
+def load_list(file_path):
+    """Loads list into memory. Must be assigned to object."""
+    
+    textlist = []
+    with open(file_path) as file_handler:
+        line = file_handler.readline()
+        while line:
+            textlist.append(line)
+            line = file_handler.readline()
+    return textlist
 
 
 # ## Preprocessing I: Tokenize web text by sentences
@@ -130,7 +148,7 @@ def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
     if type(tuplist)==float:
         return # Can't iterate over floats, so exit
     
-    print('Parsing school #' + str(pcount)) # Print number of school being parsed
+    #print('Parsing school #' + str(pcount)) # Print number of school being parsed
 
     for tup in tuplist: # Iterate over tuples in tuplist (list of tuples)
         if tup[3] in known_pages or tup=='': # Could use hashing to speed up comparison: hashlib.sha224(tup[3].encode()).hexdigest()
@@ -161,8 +179,12 @@ def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
     return
 
 
-if sented or phrased: # Check if tokenized sentence data already exists. If so, don't bother reparsing it
-    pass
+if phrased: 
+    pass # If parsed sentence phrase data exists, don't bother with tokenizing sentences
+
+elif sented: # Check if tokenized sentence data already exists. If so, don't bother reparsing it
+    words_by_sentence = []
+    words_by_sentence = quickpickle_load(wordsent_path) # Load data back in for parsing phrases and word embeddings model
 
 else:
     
@@ -184,68 +206,82 @@ else:
 
         # Much slower option (no multiprocessing):
         df["WEBTEXT"].progress_apply(lambda tups: preprocess_wem(tups))
+        
+        
+        # Save data for later
+        try: # Use quickpickle to dump data into pickle file
+            if __name__ == '__main__': 
+                print("Saving list of tokenized sentences to file...")
+                t = timeit.Timer(stmt="quickpickle_dump(words_by_sentence, wordsent_path)", globals=globals())
+                print("Time elapsed saving data: " + str(round(t.timeit(1),4)),'\n')
 
-        tqdm.pandas(desc="Parsing phrases") # Change title of tqdm instance
-
-    except Exception as e:
-        print(str(e))
-
-    try:
-            # Save data for later
-            with open(wordsent_path, 'wb') as destfile:
+            '''with open(wordsent_path, 'wb') as destfile:
                 gc.disable() # Disable garbage collector to increase speed
-                cPickle.dump(tqdm(words_by_sentence, desc="Saving phrase data"), destfile)
-                gc.enable() # Enable garbage collector again
+                cPickle.dump(words_by_sentence, destfile)
+                gc.enable() # Enable garbage collector again'''
 
         except Exception as e:
-            print(str(e))
+            print(str(e), "\nTrying backup save option...")
+            try:
+                # Slower way to save data:
+                with open(wordsent_path, 'wb') as destfile:
+                    t = timeit.Timer(stmt="pickle.dump(words_by_sentence, destfile)", globals=globals())
+                    print("Success! Time elapsed saving data: " + str(round(t.timeit(1),4)),'\n')
+
+            except Exception as e:
+                print("Failed to save sentence data: " + str(e))
+
+    except Exception as e:
+        print("Failed to tokenize sentences: " + str(e))
+        sys.exit()
         
     
 # ## Preprocessing II: Detect and parse common phrases in words_by_sentence
 
 if phrased: # Check if phrased data already exists. If so, don't bother recalculating it
-    pass
+    words_by_sentence = []
+    words_by_sentence = quickpickle_load(phrasesent_path) # Load data back in, for word embeddings model
 
 else:
+    tqdm.pandas(desc="Parsing phrases") # Change title of tqdm instance
 
     try:
         print("Detecting and parsing phrases in list of sentences...")
         # Threshold represents a threshold for forming the phrases (higher means fewer phrases). A phrase of words a and b is accepted if (cnt(a, b) - min_count) * N / (cnt(a) * cnt(b)) > threshold, where N is the total vocabulary size. By default this value is 10.0
-        phrases = Phrases(tqdm(words_by_sentence,desc="Detecting phrases"), min_count=3, delimiter=b'_', common_terms=stopenglish, threshold=5) # Detect phrases in sentences based on collocation counts
+        phrases = Phrases(words_by_sentence, min_count=3, delimiter=b'_', common_terms=stopenglish, threshold=5) # Detect phrases in sentences based on collocation counts
         words_by_sentence = [phrases[sent] for sent in tqdm(words_by_sentence, desc="Parsing phrases")] # Apply phrase detection model to each sentence in data
 
     except Exception as e:
-        print(str(e))
+        print("Failed to parse sentence phrases: " + str(e))
         sys.exit()
     
-    # Use quickpickle to dump data into pickle file
-    try:
-        if __name__ == '__main__':
+    # Save data for later
+    try: # Use quickpickle to dump data into pickle file
+        if __name__ == '__main__': 
             print("Saving list of tokenized, phrased sentences to file...")
-            t = timeit.Timer(stmt="quickpickle_dump(tqdm(words_by_sentence, desc='Saving data'), wemdata_path)", globals=globals())
+            t = timeit.Timer(stmt="quickpickle_dump(words_by_sentence, phrasesent_path)", globals=globals())
             print("Time elapsed saving data: " + str(round(t.timeit(1),4)),'\n')
                                          
-        # Save data for later
-        with open(phrasesent_path, 'wb') as destfile:
+        '''with open(phrasesent_path, 'wb') as destfile:
             gc.disable() # Disable garbage collector to increase speed
             cPickle.dump(words_by_sentence, destfile)
-            gc.enable() # Enable garbage collector again
+            gc.enable() # Enable garbage collector again'''
 
     except Exception as e:
         print(str(e), "\nTrying backup save option...")
         try:
             # Slower way to save data:
-            with open(wemdata_path, 'wb') as destfile:
-                t = timeit.Timer(stmt="pickle.dump(tqdm(words_by_sentence, desc='Saving data'), destfile)", globals=globals())
+            with open(phrasesent_path, 'wb') as destfile:
+                t = timeit.Timer(stmt="pickle.dump(words_by_sentence, destfile)", globals=globals())
                 print("Success! Time elapsed saving data: " + str(round(t.timeit(1),4)),'\n')
 
         except Exception as e:
-            print(str(e))
+            print("Failed to save parsed sentence phrases: " + str(e))
         
 
 # Take a look at the data 
-print("Sample of the first 200 sentences:")
-print(words_by_sentence[:200])
+print("Sample of the first 150 sentences:")
+print(words_by_sentence[:150])
 
 
 # ## Train Word Embeddings Model with word2vec in gensim
@@ -268,20 +304,21 @@ Word2Vec parameter choices explained:
 
 # Train the model with above parameters:
 try:
-    model = gensim.models.Word2Vec(tqdm(words_by_sentence, desc="Training word2vec  model"), size=200, window=6, min_count=3, sg=1, alpha=0.025, min_alpha=0.001,\
+    print("Training word2vec model...")
+    model = gensim.models.Word2Vec(words_by_sentence, size=200, window=6, min_count=3, sg=1, alpha=0.025, min_alpha=0.001,\
                                    iter=5, batch_words=10000, workers=1, seed=43, negative=5, ns_exponent=0.75)
     print("word2vec model TRAINED successfully!")
 
     # Save model for later:
-    with open(wem_path, 'wb') as destfile:
+    with open(model_path, 'wb') as destfile:
         try:
             model.wv.save_word2vec_format(destfile)
-            print("word2vec model SAVED to " + str(destfile))
+            print("word2vec model SAVED to " + str(model_path))
         except Exception as e:
             print(str(e))
             try:
                 model.save(destfile)
-                print("word2vec model SAVED to " + str(wem_path))
+                print("word2vec model SAVED to " + str(model_path))
             except Exception as e:
                 print(str(e))
 

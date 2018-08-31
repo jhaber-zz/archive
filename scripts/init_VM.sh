@@ -52,7 +52,7 @@ pip3 install boxsdk
 
 # Write and call function to import NLP tools from within Python:
 function import_NLP_tools {
-python - <<END
+python3 - <<END
 import nltk
 nltk.download('punkt')
 nltk.download('stopwords')

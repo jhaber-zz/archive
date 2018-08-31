@@ -7,9 +7,11 @@
 """This script uses matplotlib and seaborn to plot a big DataFrame.
 
 Author: Jaren Haber, PhD Candidate in UC Berkeley Sociology. 
-Date: January 7th, 2018."""
+Date created: January 7th, 2018.
+Date last revised: August 7th, 2018."""
 
 import pandas as pd
+#import csv # For identifying delimiters
 #import numpy as np, re, os, csv
 #from nltk.stem.porter import PorterStemmer # an approximate method of stemming words
 #stemmer = PorterStemmer()
@@ -29,8 +31,8 @@ matplotlib.style.use('ggplot')
 
 dir_prefix = "/vol_b/data/" # For VM terminal
 outfolder = dir_prefix + "Charter-school-identities/data/graphs/"
-counts_file = dir_prefix + 'Charter-school-identities/data/charters_parsed_03-04_no-text_SMALL.csv'
-bigfile = dir_prefix + 'Charter-school-identities/data/charters_parsed_03-08.csv'
+counts_file = dir_prefix + 'charters_full_2015_250_counts.pkl'
+#bigfile = dir_prefix + 'Charter-school-identities/data/charters_parsed_03-08.csv'
 
 
 # Define helper functions:
@@ -67,11 +69,17 @@ def convert_df(df):
     return converted_df
 
 
+#import csv
+#firstline = something(counts_file)
+#delimiter = csv.Sniffer().sniff(schooldf).delimiter
+
 # Load data:
 
-schooldf = pd.read_csv(counts_file, sep=",", low_memory=False, encoding="utf-8", na_values={"TITLEI":["M","N"]})
-schooldf["PCTFRL"] = schooldf["TOTFRL"]/schooldf["MEMBER"] # Percent receiving free/ reduced-price lunch
-schooldf["IDLEAN"] = schooldf["ess_strength"] - schooldf["prog_strength"]
+schooldf = pd.read_pickle(counts_file)
+#schooldf = pd.read_csv(counts_file, sep=",", low_memory=False, encoding="utf-8", na_values={"TITLEI":["M","N"]})
+#schooldf["PCTFRL"] = schooldf["TOTFRL"]/schooldf["MEMBER"] # Percent receiving free/ reduced-price lunch
+#schooldf["IDLEAN"] = schooldf["ess_strength"] - schooldf["prog_strength"]
+schooldf.drop(["WEBTEXT", "CMO_WEBTEXT"], axis=1, inplace=True) # Drop huge columns
 schooldf = convert_df(schooldf)
 
 
@@ -79,12 +87,12 @@ schooldf = convert_df(schooldf)
 
 with sns.axes_style("white"):
     #sns_hexplot = sns.jointplot(x="ess_strength", y="prog_strength", data=schooldf, marginal_kws=dict(bins=50), joint_kws=dict(bins=100), kind="hex", color="k", xlim=(0.0, 0.4), ylim=(0.0, 0.4)).set_axis_labels("Strength of traditionalist ideology", "Strength of progressivist ideology")
-    #sns_jointplot = sns.jointplot(x="IDLEAN", y="PCTETH", data=schooldf, color="purple", marginal_kws=dict(bins=50), scatter_kws={"s": 10}, x_jitter=0.2, robust=True, kind="reg", xlim=(-0.4, 0.4), ylim=(0.0, 1.0)).set_axis_labels("Progressive ideology < > Traditional ideology", "Percent nonwhite students")
-    #sns_lmplot1 = sns.lmplot(x="IDLEAN", y="PCTETH", col="PLACE", col_wrap=2, size=5, data=schooldf, x_jitter=0.2, robust=True, scatter_kws={"s": 10, "color": "brown"})
-    #sns_lmplot2 = sns.lmplot(x="IDLEAN", y="PCTETH", hue="TITLEI", data=schooldf, x_jitter=0.2, robust=True, scatter_kws={"s": 10})
+    sns_jointplot = sns.jointplot(x="ESS_STR", y="PCTETH", data=schooldf, color="purple", marginal_kws=dict(bins=50), scatter_kws={"s": 10}, x_jitter=0.2, robust=True, kind="reg", xlim=(-0.4, 0.4), ylim=(0.0, 1.0)).set_axis_labels("Strength of traditional ideology", "Percent nonwhite students")
+    sns_lmplot1 = sns.lmplot(x="ESS_STR", y="PCTETH", col="PLACE", col_wrap=2, height=5, data=schooldf, x_jitter=0.2, robust=True, scatter_kws={"s": 10, "color": "brown"})
+    sns_lmplot2 = sns.lmplot(x="ESS_STR", y="PCTETH", hue="TITLEI", data=schooldf, x_jitter=0.2, robust=True, scatter_kws={"s": 10})
     
-#sns_lmplot1.set(xlim=(-0.4, 0.4), ylim=(0.0, 1.0), xlabel="Progressive ideology < > Traditional ideology", ylabel="Percent nonwhite students")
-#sns_lmplot2.set(xlim=(-0.4, 0.4), ylim=(0.0, 1.0), xlabel="Progressive ideology < > Traditional ideology", ylabel="Percent nonwhite students")
+sns_lmplot1.set(xlim=(-0.4, 0.4), ylim=(0.0, 1.0), xlabel="Strength of traditional ideology", ylabel="Percent nonwhite students")
+sns_lmplot2.set(xlim=(-0.4, 0.4), ylim=(0.0, 1.0), xlabel="Strength of traditional ideology", ylabel="Percent nonwhite students")
 #sns_lmplot.set(xlim=(0.0, 1.0))
 #lmaxes = sns_lmplot.axes
 #lmaxes[0,0].set_xlim(-0.4, 0.4)
@@ -96,6 +104,6 @@ with sns.axes_style("white"):
 #sns_hexplot.set(xlim=(0.0, 0.5))
 
 #sns_hexplot.savefig(dir_prefix + "Charter-school-identities/data/graphs/ideology_hexplot_03-15.png")
-#sns_jointplot.savefig(dir_prefix + "Charter-school-identities/data/graphs/ideology_jointplot_03-15.png")
-#sns_lmplot1.savefig(dir_prefix + "Charter-school-identities/data/graphs/ideology_lmplot1_03-15.png")
-#sns_lmplot2.savefig(dir_prefix + "Charter-school-identities/data/graphs/ideology_lmplot2_03-15.png")
+sns_jointplot.savefig(dir_prefix + "Charter-school-identities/data/graphs/ideology_jointplot_03-15.png")
+sns_lmplot1.savefig(dir_prefix + "Charter-school-identities/data/graphs/ideology_lmplot1_03-15.png")
+sns_lmplot2.savefig(dir_prefix + "Charter-school-identities/data/graphs/ideology_lmplot2_03-15.png")

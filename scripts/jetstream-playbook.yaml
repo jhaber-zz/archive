@@ -26,6 +26,13 @@
 
     # Set up users and groups:
     - user:
+        name: JerryShi7
+        uid: 1012
+        comment: "Ji Shi"
+        groups: users,admin,docker
+        shell: /bin/bash
+
+    - user:
         name: kruing01
         uid: 1011
         comment: "Krutika Ingale"
@@ -100,6 +107,10 @@
 
 
 #    - name: Set authorized key took from url
+    - authorized_key:   
+        user: JerryShi7
+        state: present
+        key: https://github.com/JerryShi7.keys
     - authorized_key:   
         user: kruing01
         state: present

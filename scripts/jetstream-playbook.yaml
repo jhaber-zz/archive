@@ -26,6 +26,20 @@
 
     # Set up users and groups:
     - user:
+        name: yoonsunghong
+        uid: 1014
+        comment: "Yoon Sung Hong"
+        groups: users,admin,docker
+        shell: /bin/bash
+
+    - user:
+        name: sarahsolieman
+        uid: 1013
+        comment: "Sarah Solieman"
+        groups: users,admin,docker
+        shell: /bin/bash
+
+    - user:
         name: JerryShi7
         uid: 1012
         comment: "Ji Shi"
@@ -107,6 +121,14 @@
 
 
 #    - name: Set authorized key took from url
+    - authorized_key:   
+        user: yoonsunghong
+        state: present
+        key: https://github.com/yoonsunghong.keys
+    - authorized_key:   
+        user: sarahsolieman
+        state: present
+        key: https://github.com/sarahsolieman.keys
     - authorized_key:   
         user: JerryShi7
         state: present

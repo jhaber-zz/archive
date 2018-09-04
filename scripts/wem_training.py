@@ -157,20 +157,15 @@ def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
         for chunk in tup[3].split('\n'): #.split('\x').replace('\xa0','').replace('\x92',''):
             for sent in sent_tokenize(chunk): # Clean up words: lower-case; remove unicode spaces ('\xa0'),tabs ('\t'), end-dashes, and any other leftovers ('\u*', '\x*', '\b*')
                 words_by_sentence.append(list(stem(re.sub(r"\\x.*|\\u.*|\\b.*|-$", "", 
-                                                          word.lower().replace(u"\xa0", u" ").replace(u"\\t", u" "))) 
+                                                          word.lower().replace(u"\xa0", u" ").replace(u"\\t", u" ").strip(" "))) 
                                          for word in word_tokenize(sent) 
                                          if not (word in punctuations 
                                                  or "http" in word
                                                  or "www" in word
+                                                 or "\\" in word
                                                  or word.isdigit() 
-                                                 or word.replace('-','').isdigit() 
-                                                 or word.replace('.','').isdigit()
-                                                 or word.replace(',','').isdigit()
-                                                 or word.replace(':','').isdigit()
-                                                 or word.replace(';','').isdigit()
-                                                 or word.replace('/','').isdigit()
-                                                 or word.replace('k','').isdigit()
                                                  or word=="'s")))
+                                                 or word.replace('-','').replace('.','').replace(',','').replace(':','').replace(';','').replace('/','').replace('k','').replace('e','').isdigit()
 
         known_pages.add(tup[3])
     
@@ -288,7 +283,7 @@ print(words_by_sentence[:150])
 
 ''' 
 Word2Vec parameter choices explained:
-- size = 200: Use hundreds of dimensions/degrees of freedom to generate accurate models from this large data set
+- size = 300: Use hundreds of dimensions/degrees of freedom to generate accurate models from this large data set
 - window = 6: Observe window of 6 context words in each direction, keeping word-word relationships moderately tight
 - min_count = 3: Exclude very rare words, which occur just once or twice and typically are irrelevant proper nouns
 - sg = 1: I choose a 'Skip-Gram' model over a CBOW (Continuous Bag of Words) model because skip-gram works better with larger data sets. It predicts words from contexts, rather than smoothing over context information by counting each context as a single observation
@@ -305,7 +300,7 @@ Word2Vec parameter choices explained:
 # Train the model with above parameters:
 try:
     print("Training word2vec model...")
-    model = gensim.models.Word2Vec(words_by_sentence, size=200, window=6, min_count=3, sg=1, alpha=0.025, min_alpha=0.001,\
+    model = gensim.models.Word2Vec(words_by_sentence, size=300, window=6, min_count=3, sg=1, alpha=0.025, min_alpha=0.001,\
                                    iter=5, batch_words=10000, workers=1, seed=43, negative=5, ns_exponent=0.75)
     print("word2vec model TRAINED successfully!")
 

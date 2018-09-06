@@ -49,7 +49,7 @@ import Cython # For parallelizing word2vec
 # ## Read in data
 
 # Define file paths
-charters_path = "../../charters_full_2015_15_250.pkl" # All text data; only charter schools (regardless if open or not)
+charters_path = "../../nowdata/traincf_2015_15_250_counts.pkl" # All text data; only charter schools (regardless if open or not)
 wordsent_path = "../data/wem_wordsent_data.pkl"
 phrasesent_path = "../data/wem_phrasesent_data.pkl"
 #wemdata_path = "../data/wem_data.pkl"
@@ -164,8 +164,8 @@ def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
                                                  or "www" in word
                                                  or "\\" in word
                                                  or word.isdigit() 
-                                                 or word=="'s")))
-                                                 or word.replace('-','').replace('.','').replace(',','').replace(':','').replace(';','').replace('/','').replace('k','').replace('e','').isdigit()
+                                                 or word=="'s"
+                                                 or word.replace('-','').replace('.','').replace(',','').replace(':','').replace(';','').replace('/','').replace('k','').replace('e','').isdigit())))
 
         known_pages.add(tup[3])
     

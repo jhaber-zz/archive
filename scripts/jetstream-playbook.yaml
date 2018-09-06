@@ -26,110 +26,111 @@
 
     # Set up users and groups:
     - user:
-        name: yoonsunghong
-        uid: 1014
-        comment: "Yoon Sung Hong"
-        groups: users,admin,docker
-        shell: /bin/bash
-
-    - user:
-        name: sarahsolieman
-        uid: 1013
-        comment: "Sarah Solieman"
-        groups: users,admin,docker
-        shell: /bin/bash
-
-    - user:
-        name: JerryShi7
-        uid: 1012
-        comment: "Ji Shi"
-        groups: users,admin,docker
-        shell: /bin/bash
-
-    - user:
-        name: kruing01
-        uid: 1011
-        comment: "Krutika Ingale"
-        groups: users,admin,docker
-        shell: /bin/bash
-    - user:
-        name: kaandgsy
-        uid: 1010
-        comment: "Kaan Dogusoy"
-        groups: users,admin,docker
-        shell: /bin/bash
-    - user:
-        name: bylei
-        uid: 1009
-        comment: "Brian Lei"
-        groups: users,admin,docker
-        shell: /bin/bash
-    - user:
         name: jhaber
         uid: 1000
         comment: "Jaren Haber"
         groups: users,admin,docker
         shell: /bin/bash
     - user:
-        name: bradafza
-        uid: 1001
-        comment: "Brad Afzali"
-        groups: users,admin,docker
-        shell: /bin/bash
-    - user:
-        name: harshayu
-        uid: 1002
-        comment: "Harshayu Girase"
-        groups: users,admin,docker
-        shell: /bin/bash
-    - user:
-        name: sujaksh
-        uid: 1003
-        comment: "Akshat Gokhale"
-        groups: users,admin,docker
-        shell: /bin/bash
-    - user:
-        name: arjuns
-        uid: 1004
-        comment: "Arjun Srinivasan"
-        groups: users,admin,docker
-        shell: /bin/bash
-    - user:
         name: aculich
-        uid: 1005
+        uid: 1001
         comment: "Aaron Culich"
         groups: users,admin,docker
         shell: /bin/bash
     - user:
-        name: maxyuan
-        uid: 1006
-        comment: "Max Yuan"
+        name: bradafza
+        uid: 1002
+        comment: "Brad Afzali"
         groups: users,admin,docker
         shell: /bin/bash
     - user:
         name: jiahuazou
-        uid: 1007
+        uid: 1003
         comment: "Jiahua Zou"
         groups: users,admin,docker
         shell: /bin/bash
     - user:
-        name: serenajiang
-        uid: 1008
-        comment: "Serena Jiang"
+        name: sarahsolieman
+        uid: 1004
+        comment: "Sarah Solieman"
         groups: users,admin,docker
-        shell: /bin/bash'''
+        shell: /bin/bash
+    - user:
+        name: JerryShi7
+        uid: 1005
+        comment: "Ji Shi"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: kruing01
+        uid: 1006
+        comment: "Krutika Ingale"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: kaandgsy
+        uid: 1007
+        comment: "Kaan Dogusoy"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: bylei
+        uid: 1008
+        comment: "Brian Lei"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: prisubs
+        uid: 1009
+        comment: "Prianka Subrahmanyam"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: itong
+        uid: 1010
+        comment: "Yitong Chen"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: ehuynh
+        uid: 1011
+        comment: "Elaine Huynh"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: yoonsunghong
+        uid: 1012
+        comment: "Yoon Sung Hong"
+        groups: users,admin,docker
+        shell: /bin/bash
 
 
 #    - name: Set authorized key took from url
-    - authorized_key:   
+    - authorized_key:
+        user: jhaber
+        state: present
+        key: https://github.com/jhaber-zz.keys
+    - authorized_key:
+        user: aculich
+        state: present
+        key: https://github.com/aculich.keys
+    - authorized_key:
+        user: bradafza
+        state: present
+        key: https://github.com/bradafzali.keys
+    - authorized_key:
+        user: jiahuazou
+        state: present
+        key: https://github.com/JiahuaZou.keys
+    - authorized_key:
         user: yoonsunghong
         state: present
         key: https://github.com/yoonsunghong.keys
-    - authorized_key:   
+    - authorized_key:
         user: sarahsolieman
         state: present
         key: https://github.com/sarahsolieman.keys
-    - authorized_key:   
+    - authorized_key: 
         user: JerryShi7
         state: present
         key: https://github.com/JerryShi7.keys
@@ -139,48 +140,25 @@
         key: https://github.com/krutikaingale.keys
     - authorized_key:
         user: kaandgsy
-        state: present  
+        state: present
         key: https://github.com/kaandogusoy.keys
     - authorized_key:
         user: bylei
         state: present
         key: https://github.com/bylei.keys
     - authorized_key:
-        user: jhaber
+        user: ehuynh
         state: present
-        key: https://github.com/jhaber-zz.keys
+        key: https://github.com/ehuynh15.keys
     - authorized_key:
-        user: bradafza
+        user: itong
         state: present
-        key: https://github.com/bradafzali.keys
+        key: https://github.com/itong1996.keys
     - authorized_key:
-        user: arjuns
+        user: prisubs
         state: present
-        key: https://github.com/arjunsrinivasan1997.keys
-    - authorized_key:
-        user: harshayu
-        state: present
-        key: https://github.com/HarshayuGirase.keys
-    - authorized_key:
-        user: sujaksh
-        state: present
-        key: https://github.com/ajgokhale.keys
-    - authorized_key:
-        user: aculich
-        state: present
-        key: https://github.com/aculich.keys
-    - authorized_key:
-        user: maxyuan
-        state: present
-        key: https://github.com/MaxYuan85.keys
-    - authorized_key:
-        user: jiahuazou
-        state: present
-        key: https://github.com/JiahuaZou.keys
-    - authorized_key:
-        user: serenajiang
-        state: present
-        key: https://github.com/serenajiang.keys
+        key: https://github.com/prisubs.keys
+
 
     - copy:
         src: charter-school-notebook-server

@@ -103,6 +103,12 @@
         comment: "Yoon Sung Hong"
         groups: users,admin,docker
         shell: /bin/bash
+    - user:
+        name: kwalia
+        uid: 1013
+        comment: "Kanika Ahluwalia"
+        groups: users,admin,docker
+        shell: /bin/bash
 
 
 #    - name: Set authorized key took from url
@@ -158,6 +164,10 @@
         user: prisubs
         state: present
         key: https://github.com/prisubs.keys
+    - authorized_key: 
+        user: kwalia
+        state: present
+        key: https://github.com/kwalia1999.keys
 
 
     - copy:

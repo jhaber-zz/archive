@@ -81,19 +81,19 @@
         shell: /bin/bash
     - user:
         name: prisubs
-        uid: 1009
+        uid: 1019
         comment: "Prianka Subrahmanyam"
         groups: users,admin,docker
         shell: /bin/bash
     - user:
         name: itong
-        uid: 1010
+        uid: 1015
         comment: "Yitong Chen"
         groups: users,admin,docker
         shell: /bin/bash
     - user:
         name: ehuynh
-        uid: 1011
+        uid: 1016
         comment: "Elaine Huynh"
         groups: users,admin,docker
         shell: /bin/bash
@@ -105,8 +105,14 @@
         shell: /bin/bash
     - user:
         name: kwalia
-        uid: 1013
+        uid: 1017
         comment: "Kanika Ahluwalia"
+        groups: users,admin,docker
+        shell: /bin/bash
+    - user:
+        name: tiinanguyen
+        uid: 1018
+        comment: "Tina Nguyen"
         groups: users,admin,docker
         shell: /bin/bash
 
@@ -168,6 +174,10 @@
         user: kwalia
         state: present
         key: https://github.com/kwalia1999.keys
+    - authorized_key:   
+        user: tiinanguyen
+        state: present
+        key: https://github.com/tiinanguyen.keys
 
 
     - copy:

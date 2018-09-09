@@ -50,10 +50,10 @@ import Cython # For parallelizing word2vec
 
 # Define file paths
 charters_path = "../../nowdata/traincf_2015_15_250_counts.pkl" # All text data; only charter schools (regardless if open or not)
-wordsent_path = "../data/wem_wordsent_data.pkl"
-phrasesent_path = "../data/wem_phrasesent_data.pkl"
+wordsent_path = "../data/wem_wordsent_data_train250_nostem.pkl"
+phrasesent_path = "../data/wem_phrasesent_data_train250_nostem.pkl"
 #wemdata_path = "../data/wem_data.pkl"
-model_path = "../data/wem_model.txt"
+model_path = "../data/wem_model_train250_nostem.txt"
 
 # Check if sentences data already exists, to save time
 try:
@@ -156,8 +156,8 @@ def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
 
         for chunk in tup[3].split('\n'): #.split('\x').replace('\xa0','').replace('\x92',''):
             for sent in sent_tokenize(chunk): # Clean up words: lower-case; remove unicode spaces ('\xa0'),tabs ('\t'), end-dashes, and any other leftovers ('\u*', '\x*', '\b*')
-                words_by_sentence.append(list(stem(re.sub(r"\\x.*|\\u.*|\\b.*|-$", "", 
-                                                          word.lower().replace(u"\xa0", u" ").replace(u"\\t", u" ").strip(" "))) 
+                words_by_sentence.append(list(re.sub(r"\\x.*|\\u.*|\\b.*|-$", "", 
+                                                     word.lower().replace(u"\xa0", u" ").replace(u"\\t", u" ").strip(" ")) 
                                          for word in word_tokenize(sent) 
                                          if not (word in punctuations 
                                                  or "http" in word

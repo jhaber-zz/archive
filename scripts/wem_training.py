@@ -243,7 +243,7 @@ else:
     try:
         print("Detecting and parsing phrases in list of sentences...")
         # Threshold represents a threshold for forming the phrases (higher means fewer phrases). A phrase of words a and b is accepted if (cnt(a, b) - min_count) * N / (cnt(a) * cnt(b)) > threshold, where N is the total vocabulary size. By default this value is 10.0
-        phrases = Phrases(words_by_sentence, min_count=3, delimiter=b'_', common_terms=stopenglish, threshold=5) # Detect phrases in sentences based on collocation counts
+        phrases = Phrases(words_by_sentence, min_count=3, delimiter=b'_', common_terms=stopenglish, threshold=8) # Detect phrases in sentences based on collocation counts
         words_by_sentence = [phrases[sent] for sent in tqdm(words_by_sentence, desc="Parsing phrases")] # Apply phrase detection model to each sentence in data
 
     except Exception as e:
@@ -283,14 +283,14 @@ print(words_by_sentence[:150])
 
 ''' 
 Word2Vec parameter choices explained:
-- size = 300: Use hundreds of dimensions/degrees of freedom to generate accurate models from this large data set
-- window = 6: Observe window of 6 context words in each direction, keeping word-word relationships moderately tight
+- size = 700: Use hundreds of dimensions/degrees of freedom to generate accurate models from this large data set
+- window = 8: Observe window of 6 context words in each direction, keeping word-word relationships moderately tight
 - min_count = 3: Exclude very rare words, which occur just once or twice and typically are irrelevant proper nouns
 - sg = 1: I choose a 'Skip-Gram' model over a CBOW (Continuous Bag of Words) model because skip-gram works better with larger data sets. It predicts words from contexts, rather than smoothing over context information by counting each context as a single observation
 - alpha = 0.025: Initial learning rate: prevents model from over-correcting, enables finer tuning
 - min_alpha = 0.001: Learning rate linearly decreases to this value over time, so learning happens more strongly at first
-- iter = 5: Five passes/iterations over the dataset
-- batch_words = 10000: During each pass, sample batch size of 10000 words
+- iter = 10: Five passes/iterations over the dataset
+- batch_words = 20000: During each pass, sample batch size of 10000 words
 - workers = 1: Set to 1 to guarantee reproducibility, OR accelerate by parallelizing model training across the 44 vCPUs of the XXL Jetstream VM
 - seed = 43: To increase reproducibility of model training 
 - negative = 5: Draw 5 "noise words" in negative sampling in order to simplify weight tweaking
@@ -300,8 +300,8 @@ Word2Vec parameter choices explained:
 # Train the model with above parameters:
 try:
     print("Training word2vec model...")
-    model = gensim.models.Word2Vec(words_by_sentence, size=300, window=6, min_count=3, sg=1, alpha=0.025, min_alpha=0.001,\
-                                   iter=5, batch_words=10000, workers=1, seed=43, negative=5, ns_exponent=0.75)
+    model = gensim.models.Word2Vec(words_by_sentence, size=700, window=8, min_count=3, sg=1, alpha=0.025, min_alpha=0.001,\
+                                   iter=10, batch_words=20000, workers=1, seed=43, negative=5, ns_exponent=0.75)
     print("word2vec model TRAINED successfully!")
 
     # Save model for later:

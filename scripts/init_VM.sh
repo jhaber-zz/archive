@@ -67,5 +67,5 @@ import_NLP_tools
 # Set user permissions with custom playbook:
 ansible-playbook jetstream-playbook.yaml
 
-# Make GitHub more efficient by storing credentials, requires less username & PW typing
-git config credential.helper store
+# Make GitHub more efficient by caching credentials for an hour, requires less username & PW typing
+git config --global credential.helper 'cache --timeout==3600'

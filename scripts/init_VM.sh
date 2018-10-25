@@ -13,8 +13,8 @@ pip3 install --upgrade pip
 #apt-get install docker-machine
 #docker-machine create default
 #docker-machine env default # Run the lines returned by this command
-pip3 install docker
-pip3 install docker-compose
+#pip3 install docker
+#pip3 install docker-compose
 
 # Scraping web content and URLs:
 pip3 install bs4
@@ -38,7 +38,11 @@ pip3 install Cython
 apt install htop # More readable version of top, for process management
 apt install ncdu # Fast, comprehensive disk investigation
 byobu-enable # Make sure window management software is turned on
-chmod 1777 ../../*
+
+# Permissive folders so apprentices & researchers can open & edit & save files
+chmod 1777 /vol_b/data/*
+chmod 1777 /vol_b/data/*/*
+chmod 1777 /vol_b_data/*/*/*
 
 # Setting up git-LFS (TO DO: run this only for organization repos):
 #curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
@@ -63,5 +67,5 @@ import_NLP_tools
 # Set user permissions with custom playbook:
 ansible-playbook jetstream-playbook.yaml
 
-# Make sure permission structure on volume allows people to do things
-#chmod -R 1777 /vol_b/data
+# Make GitHub more efficient by storing credentials, requires less username & PW typing
+git config credential.helper store

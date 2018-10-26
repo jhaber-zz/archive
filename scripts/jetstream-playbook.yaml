@@ -179,13 +179,28 @@
         state: present
         key: https://github.com/tiinanguyen.keys
 
-
     - copy:
         src: charter-school-notebook-server
         dest: /usr/local/bin/charter-school-notebook-server
         owner: root
         group: root
         mode: 0755
+
+   - copy:
+        src: kill-charter-school-containers
+        dest: /usr/local/sbin/kill-charter-school-containers
+        owner: root
+        group: root
+        mode: 0755
+
+   - copy:
+        src: cron-kill-containers
+        dest: /etc/cron.d/kill-containers       
+        owner: root
+        group: root
+        mode: 0644
+
+
 
   # This line keeps the procedure from stopping due to users already existing
   ignore_errors: yes

@@ -1,0 +1,3 @@
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+0 7 * * *   root    test -x /usr/local/sbin/kill-charter-school-containers && /usr/local/sbin/kill-charter-school-containers

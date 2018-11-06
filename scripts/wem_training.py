@@ -157,7 +157,7 @@ def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
         for chunk in tup[3].split('\n'): #.split('\x').replace('\xa0','').replace('\x92',''):
             for sent in sent_tokenize(chunk): # Clean up words: lower-case; remove unicode spaces ('\xa0'),tabs ('\t'), end-dashes, and any other leftovers ('\u*', '\x*', '\b*')
                 words_by_sentence.append(list(re.sub(r"\\x.*|\\u.*|\\b.*|-$|^-|'$|^'|[*+]", "", 
-                                                     word.lower().replace(u"\xa0", u" ").replace(u"\x00", u" ").replace(u"\\t", u" ").replace(u"_", u" ").strip(" ")) 
+                                                     word.lower().replace(u"\xa0", u" ").replace(u"\x00", u"").replace(u"\\t", u" ").replace(u"_", u" ").strip(" ")) 
                                          for word in word_tokenize(sent) 
                                          if not (word in punctuations 
                                                  or "http" in word
@@ -250,7 +250,7 @@ else:
     try:
         print("Detecting and parsing phrases in list of sentences...")
         # Threshold represents a threshold for forming the phrases (higher means fewer phrases). A phrase of words a and b is accepted if (cnt(a, b) - min_count) * N / (cnt(a) * cnt(b)) > threshold, where N is the total vocabulary size. By default this value is 10.0
-        phrases = Phrases(words_by_sentence, min_count=3, delimiter=b'_', common_terms=stopenglish, threshold=8) # Detect phrases in sentences based on collocation counts
+        phrases = Phrases(words_by_sentence, min_count=3, delimiter=b'_', common_terms=stopenglish, threshold=10) # Detect phrases in sentences based on collocation counts
         words_by_sentence = [phrases[sent] for sent in tqdm(words_by_sentence, desc="Parsing phrases")] # Apply phrase detection model to each sentence in data
 
     except Exception as e:

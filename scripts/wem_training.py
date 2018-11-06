@@ -32,7 +32,7 @@ from nltk.corpus import stopwords # for eliminating stop words
 stopenglish = list(stopwords.words("english")) # assign list of english stopwords
 import string # for one method of eliminating punctuation
 punctuations = list(string.punctuation) # assign list of common punctuation symbols
-punctuations+=['•','©','–','–','``','’','“','”','...','»',"''",'..._...','--','×','|_','_','§','…','⎫'] # Add a few more punctuations also common in web text
+punctuations+=['*','•','©','–','–','``','’','“','”','...','»',"''",'..._...','--','×','|_','_','§','…','⎫'] # Add a few more punctuations also common in web text
 from nltk.stem.porter import PorterStemmer # approximate but effective (and common) method of normalizing words: stems words by implementing a hierarchy of linguistic rules that transform or cut off word endings
 stem = PorterStemmer().stem # Makes stemming more accessible
 import gensim # For word embedding models
@@ -49,11 +49,11 @@ import Cython # For parallelizing word2vec
 # ## Read in data
 
 # Define file paths
-charters_path = "../../nowdata/traincf_2015_15_250_counts.pkl" # All text data; only charter schools (regardless if open or not)
-wordsent_path = "../data/wem_wordsent_data_train250_nostem.pkl"
-phrasesent_path = "../data/wem_phrasesent_data_train250_nostem.pkl"
+charters_path = "../../nowdata/traincf_2015_250_v2a_unlappedtext_counts3.tar.gz" # All text data; only charter schools (regardless if open or not)
+wordsent_path = "../data/wem_wordsent_data_train250_nostem_unlapped.pkl"
+phrasesent_path = "../data/wem_phrasesent_data_train250_nostem_unlapped.pkl"
 #wemdata_path = "../data/wem_data.pkl"
-model_path = "../data/wem_model_train250_nostem.txt"
+model_path = "../data/wem_model_train250_nostem_unlapped.txt"
 
 # Check if sentences data already exists, to save time
 try:
@@ -77,7 +77,7 @@ except FileNotFoundError or OSError: # Handle common errors when calling os.path
 
 # Load charter data into DF
 gc.disable() # disable garbage collector
-df = pd.read_pickle(charters_path)
+df = pd.read_pickle(charters_path, compression="gzip")
 gc.enable() # enable garbage collector again
 
 
@@ -156,15 +156,22 @@ def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
 
         for chunk in tup[3].split('\n'): #.split('\x').replace('\xa0','').replace('\x92',''):
             for sent in sent_tokenize(chunk): # Clean up words: lower-case; remove unicode spaces ('\xa0'),tabs ('\t'), end-dashes, and any other leftovers ('\u*', '\x*', '\b*')
-                words_by_sentence.append(list(re.sub(r"\\x.*|\\u.*|\\b.*|-$", "", 
-                                                     word.lower().replace(u"\xa0", u" ").replace(u"\\t", u" ").strip(" ")) 
+                words_by_sentence.append(list(re.sub(r"\\x.*|\\u.*|\\b.*|-$|^-|'$|^'|[*+]", "", 
+                                                     word.lower().replace(u"\xa0", u" ").replace(u"\x00", u" ").replace(u"\\t", u" ").replace(u"_", u" ").strip(" ")) 
                                          for word in word_tokenize(sent) 
                                          if not (word in punctuations 
                                                  or "http" in word
                                                  or "www" in word
                                                  or "\\" in word
-                                                 or word.isdigit() 
+                                                 or word.isdigit()
+                                                 or word=="s"
+                                                 or word=="m"
+                                                 or word=="t"
+                                                 or word=="re"
                                                  or word=="'s"
+                                                 or word=="ve"
+                                                 or word=="d"
+                                                 or word=="ll"
                                                  or word.replace('-','').replace('.','').replace(',','').replace(':','').replace(';','').replace('/','').replace('k','').replace('e','').isdigit())))
 
         known_pages.add(tup[3])

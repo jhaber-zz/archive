@@ -49,10 +49,9 @@ chmod 1777 /vol_b_data/*/*/*
 #apt-get install git-lfs
 #git lfs install
 #git lfs track "*.csv" # Possibly add other file types here
-#git config --global push.default simple
 
 # Install Box SDK for working with files
-pip3 install boxsdk
+#pip3 install boxsdk
 
 # Write and call function to import NLP tools from within Python:
 function import_NLP_tools {
@@ -67,5 +66,7 @@ import_NLP_tools
 # Set user permissions with custom playbook:
 ansible-playbook jetstream-playbook.yaml
 
-# Make GitHub more efficient by caching credentials for an hour, requires less username & PW typing
-git config --global credential.helper 'cache --timeout=3600'
+# Initialize git
+git config --global credential.helper 'cache --timeout=3600' # Make GitHub more efficient by caching credentials for an hour, requires less username & PW typing
+git config --global push.default simple # Configure simple git push
+

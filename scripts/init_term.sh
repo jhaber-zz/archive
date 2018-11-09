@@ -19,6 +19,9 @@ pip install shapely # For graphs
 pip install gensim # For Word2vec and other NLP things
 pip install seaborn # For beautiful graphs (builds on matplotlib)
 pip install Cython # For parallelizing Word2vec etc
+pip install openpyxl # For saving DataFrames in Excel format
+pip install google # For automated Google searching 
+pip install https://github.com/slimkrazy/python-google-places/zipball/master # Google Places API
 
 # Write and call function to import NLP tools from within Python:
 function import_NLP_tools {

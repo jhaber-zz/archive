@@ -49,11 +49,11 @@ import Cython # For parallelizing word2vec
 # ## Read in data
 
 # Define file paths
-charters_path = "../../nowdata/traincf_2015_250_v2a_unlappedtext_counts3.tar.gz" # All text data; only charter schools (regardless if open or not)
+charters_path = "../../nowdata/traincf_2015.pkl" # All text data; only charter schools (regardless if open or not)
 wordsent_path = "../data/wem_wordsent_data_train250_nostem_unlapped.pkl"
 phrasesent_path = "../data/wem_phrasesent_data_train250_nostem_unlapped.pkl"
 #wemdata_path = "../data/wem_data.pkl"
-model_path = "../data/wem_model_train250_nostem_unlapped.txt"
+model_path = "../data/wem_model_train250_nostem_unlapped_300d.txt"
 
 # Check if sentences data already exists, to save time
 try:
@@ -77,7 +77,7 @@ except FileNotFoundError or OSError: # Handle common errors when calling os.path
 
 # Load charter data into DF
 gc.disable() # disable garbage collector
-df = pd.read_pickle(charters_path, compression="gzip")
+df = pd.read_pickle(charters_path)
 gc.enable() # enable garbage collector again
 
 
@@ -172,7 +172,9 @@ def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
                                                  or word=="ve"
                                                  or word=="d"
                                                  or word=="ll"
-                                                 or word.replace('-','').replace('.','').replace(',','').replace(':','').replace(';','').replace('/','').replace('k','').replace('e','').isdigit())))
+                                                 or word=="p"
+                                                 or word=="pm"
+                                                 or word.lower().replace('-','').replace('.','').replace(',','').replace(':','').replace(';','').replace('/','').replace('k','').replace('e','').replace('a','').replace('am','').replace('p','').replace('pm','').isdigit())))
 
         known_pages.add(tup[3])
     
@@ -290,16 +292,16 @@ print(words_by_sentence[:150])
 
 ''' 
 Word2Vec parameter choices explained:
-- size = 700: Use hundreds of dimensions/degrees of freedom to generate accurate models from this large data set
+- size = 300: Use hundreds of dimensions/degrees of freedom to generate accurate models from this large data set
 - window = 8: Observe window of 6 context words in each direction, keeping word-word relationships moderately tight
 - min_count = 3: Exclude very rare words, which occur just once or twice and typically are irrelevant proper nouns
 - sg = 1: I choose a 'Skip-Gram' model over a CBOW (Continuous Bag of Words) model because skip-gram works better with larger data sets. It predicts words from contexts, rather than smoothing over context information by counting each context as a single observation
 - alpha = 0.025: Initial learning rate: prevents model from over-correcting, enables finer tuning
 - min_alpha = 0.001: Learning rate linearly decreases to this value over time, so learning happens more strongly at first
-- iter = 10: Five passes/iterations over the dataset
-- batch_words = 20000: During each pass, sample batch size of 10000 words
-- workers = 1: Set to 1 to guarantee reproducibility, OR accelerate by parallelizing model training across the 44 vCPUs of the XXL Jetstream VM
-- seed = 43: To increase reproducibility of model training 
+- iter = 8: Eight passes/iterations over the dataset
+- batch_words = 10000: During each pass, sample batch size of 10000 words
+- workers = 1: Set to 1 to guarantee reproducibility, OR accelerate by parallelizing model training across all vCPUs
+- seed = 0: To increase reproducibility of model training 
 - negative = 5: Draw 5 "noise words" in negative sampling in order to simplify weight tweaking
 - ns_exponent = 0.75: Shape negative sampling distribution using 3/4 power, which outperforms other exponents (as popularized by original word2vec paper, Mikolov et al 2013) and slightly weights against high-frequency words (1 is exact frequencies, 0 is all words equally)
 '''
@@ -307,8 +309,8 @@ Word2Vec parameter choices explained:
 # Train the model with above parameters:
 try:
     print("Training word2vec model...")
-    model = gensim.models.Word2Vec(words_by_sentence, size=700, window=8, min_count=3, sg=1, alpha=0.025, min_alpha=0.001,\
-                                   iter=10, batch_words=20000, workers=1, seed=43, negative=5, ns_exponent=0.75)
+    model = gensim.models.Word2Vec(words_by_sentence, size=300, window=8, min_count=3, sg=1, alpha=0.025, min_alpha=0.001,\
+                                   iter=10, batch_words=20000, workers=1, seed=0, negative=5, ns_exponent=0.75)
     print("word2vec model TRAINED successfully!")
 
     # Save model for later:

@@ -37,8 +37,8 @@ from datetime import datetime # For timestamping files
 # Set directories and file paths
 dir_prefix = '/vol_b/data/Charter-school-identities/' # Set working directory 
 temp_dir = dir_prefix + "data/temp/" # Directory in which to save logging and data files
-source_file = dir_prefix + 'data/schools15withURLS.csv'
-output_file = dir_prefix + 'data/sample2.csv'
+source_file = '/vol_b/data/data_management/data/charters_unscraped_noURL_2015.csv' # Set source file path
+output_file = dir_prefix + 'data/sample.csv'
 
 '''
 if os.path.exists(output_file):  # first, check if modified file (with some data written already) is available on disk
@@ -93,7 +93,7 @@ def count_left(list_of_dicts, varname):
 
 # ## Define core URL scraping function
 
-def getURL(school_name, address, bad_sites_list, manual_url):
+def getURL(school_name, address, bad_sites_list): # manual_url
     
     '''This function finds the one best URL for a school using two methods:
     
@@ -157,14 +157,14 @@ def getURL(school_name, address, bad_sites_list, manual_url):
                     logging.info("    Success! URL obtained from Google Places API with " + str(k) + " bad URLs avoided.")
                     
                     # For testing/ debugging purposes:
-                    logging.info("  VALIDITY CHECK: Is the discovered URL of " + good_url + \
+                    '''logging.info("  VALIDITY CHECK: Is the discovered URL of " + good_url + \
                           " consistent with the known URL of " + manual_url + " ?")
                     logging.info("  Also, is the discovered name + address of " + found_name + " " + found_address + \
                           " consistent with the known name/address of: " + search_terms + " ?")
                     
                     if manual_url != "":
                         if manual_url == good_url:
-                            logging.info("    Awesome! The known and discovered URLs are the SAME!")
+                            logging.info("    Awesome! The known and discovered URLs are the SAME!")'''
                             
                     return(k, good_url)  # Returns valid URL of the Place discovered in Google Places API
         
@@ -219,9 +219,9 @@ def getURL(school_name, address, bad_sites_list, manual_url):
         logging.info("  No bad sites detected. Reliable URL!")
     
     
-    if manual_url != "":
+    '''if manual_url != "":
         if manual_url == good_url:
-            logging.info("    Awesome! The known and discovered URLs are the SAME!")
+            logging.info("    Awesome! The known and discovered URLs are the SAME!")'''
     
     if good_url == "":
         logging.info("  WARNING! No good URL found via API or google search.\n")
@@ -240,13 +240,13 @@ with open(source_file, 'r', encoding = 'utf-8') as csvfile: # open file
         sample.append(row)  # append each row to the list
         
 # Take a look at the first entry's contents and the variables list in our sample (a list of dictionaries)
-logging.info(str(sample[1]["SEARCH"]))
-logging.info(str(sample[1]["OLD_URL"]))
-logging.info(str(sample[1]["ADDRESS"]))
+logging.info(str(sample[1]["SEARCH16"]))
+#logging.info(str(sample[1]["OLD_URL"]))
+logging.info(str(sample[1]["ADDRESS16"]))
 logging.info(" Keys in this dicts list are:  ")
 logging.info(" ".join([key for key in sample[1].keys()]))
 
-count_left(sample, 'TRUE_URL')
+count_left(sample, 'URL')
 
 
 # ### Scraping URLs
@@ -258,15 +258,15 @@ for school in tqdm(sample, desc="Scraping URLs"): # loop through list of schools
     
     # Check whether a URL exists already. If so, don't waste time scraping it again!
     try:
-        if school["URL"]:
+        if len(school["URL"]) > 0:
             pass        
     except (KeyError, NameError):
         school["URL"] = ""
         school["NUM_BAD_URLS"] = ""
     
-    if school["TRUE_URL"]:
+    if school["URL"]:
         pass
-    if school["TRUE_URL"]!="" and school["TRUE_URL"]!=None:
+    if school["URL"]!="" and school["URL"]!=None:
         pass
     
     # If school is closed (SY_STATUS=2) or "inactive" (SY_STATUS=6), then don't scrape:
@@ -275,7 +275,7 @@ for school in tqdm(sample, desc="Scraping URLs"): # loop through list of schools
     
     try:
         numschools += 1
-        school["NUM_BAD_URLS"], school["URL"] = getURL(school["SCHNAM16"], school["ADDRESS16"], bad_sites, school["MANUAL_URL"]) # Call getURL() function to scrape URLs
+        school["NUM_BAD_URLS"], school["URL"] = getURL(school["SCHNAM16"], school["ADDRESS16"], bad_sites) # Call getURL() function to scrape URLs # school["MANUAL_URL"]
         
     except Exception as e:  
         #dicts_to_csv(sample, output_file, keys) # Save sample to file (can continue to load and add to it)

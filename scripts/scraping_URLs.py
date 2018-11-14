@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8
 
+# Scraping URLs via automated google search in Python
+# Project title: Charter school identities 
+# Creator: Jaren Haber, PhD Candidate
+# Institution: Department of Sociology, University of California, Berkeley
+# Date created: Summer 2017
+# Date last edited: November 8, 2018
 
-# # Google search using Python
 
 """This script uses two related functions to scrape the best URL from online sources: 
 1. The Google Places API. See the [GitHub page](https://github.com/slimkrazy/python-google-places) for the Python wrapper and sample code, [Google Web Services](https://developers.google.com/places/web-service/) for general documentation, and [here](https://developers.google.com/places/web-service/details) for details on Place Details requests.
@@ -15,11 +20,7 @@ To upgrade your quota limits, sign up for billing--it's free and raises your dai
 The code below doesn't use Google's Knowledge Graph (KG) Search API because this turns out NOT to reveal websites related to search results--despite these being displayed in the KG cards visible at right in a standard Google search. The KG API is only useful for scraping KG id, description, name, and other basic/ irrelevant info. To see examples of how the KG API constructs a search URL, etc., see [here](http://searchengineland.com/cool-tricks-hack-googles-knowledge-graph-results-featuring-donald-trump-268231).
  
 Possibly useful note on debugging: An issue causing the GooglePlaces package to unnecessarily give a "ValueError" and stop was resolved in [July 2017](https://github.com/slimkrazy/python-google-places/issues/59).
-Other instances of this error may occur if Google Places API cannot identify a location as given. Dealing with this is a matter of proper Exception handling (which seems to be working fine below).
-
-Author: Jaren Haber, PhD Candidate in UC Berkeley Sociology. 
-Date: Summer 2017.
-Revised: Spring 2018."""
+Other instances of this error may occur if Google Places API cannot identify a location as given. Dealing with this is a matter of proper Exception handling (which seems to be working fine below)."""
 
 
 # ## Initializing Python search environment
@@ -37,7 +38,7 @@ from datetime import datetime # For timestamping files
 # Set directories and file paths
 dir_prefix = '/vol_b/data/Charter-school-identities/' # Set working directory 
 temp_dir = dir_prefix + "data/temp/" # Directory in which to save logging and data files
-source_file = '/vol_b/data/data_management/data/charters_unscraped_noURL_2015.csv' # Set source file path
+source_file = '/vol_b/data/data_management/data/charters_unscraped_hasURL_2015.csv' # Set source file path
 output_file = dir_prefix + 'data/sample.csv'
 
 '''
@@ -271,7 +272,7 @@ for school in tqdm(sample, desc="Scraping URLs"): # loop through list of schools
     
     # If school is closed (SY_STATUS=2) or "inactive" (SY_STATUS=6), then don't scrape:
     if school["SY_STATUS16"] in [2,6]:
-        pass
+        continue
     
     try:
         numschools += 1

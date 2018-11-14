@@ -1,12 +1,12 @@
 #!/usr/bin/env python
-# coding: utf-8
+# -*- coding: UTF-8
 
 # Word Embedding Models: Preprocessing and Model Training
 # Project title: Charter school identities 
 # Creator: Jaren Haber, PhD Candidate
 # Institution: Department of Sociology, University of California, Berkeley
 # Date created: July 20, 2018
-# Date last edited: July 26, 2018
+# Date last edited: November 8, 2018
 
 
 # ## Initialize Python
@@ -45,15 +45,21 @@ from multiprocessing import Pool # key function for multiprocessing, to increase
 pool = Pool(processes=numcpus) # Pre-load number of CPUs into pool function
 import Cython # For parallelizing word2vec
 
+mpdo = False # Set to 'True' if using multiprocessing--faster for creating words by sentence file, but more complicated
+
 
 # ## Read in data
 
 # Define file paths
+if mpdo:
+    wordsent_path = "../data/wem_wordsent_data_train250_nostem_unlapped.txt"
+else:
+    wordsent_path = "../data/wem_wordsent_data_train250_nostem_unlapped.pkl"
 charters_path = "../../nowdata/traincf_2015.pkl" # All text data; only charter schools (regardless if open or not)
-wordsent_path = "../data/wem_wordsent_data_train250_nostem_unlapped.pkl"
 phrasesent_path = "../data/wem_phrasesent_data_train250_nostem_unlapped.pkl"
 #wemdata_path = "../data/wem_data.pkl"
 model_path = "../data/wem_model_train250_nostem_unlapped_300d.txt"
+
 
 # Check if sentences data already exists, to save time
 try:
@@ -111,16 +117,82 @@ def quickpickle_dump(dumpvar, picklepath):
         gc.enable() # enable garbage collector again
     
     
-def load_list(file_path):
-    """Loads list into memory. Must be assigned to object."""
+def write_sentence(sentence, file_path):
+    """Writes sentence to file at file_path.
+    Useful for recording first row's output of preprocess_wem() one sentence at a time.
+    Input: Sentence (list of strings), path to file to save it
+    Output: Nothing (saves to disk)"""
+    
+    with open(file_path, 'w+') as file_handler:
+        for word in sentence: # Iterate over words in sentence
+            if word == "":
+                pass
+            else:
+                file_handler.write(word + " ") # Write each word on same line, followed by space
+            
+        file_handler.write("\n") # After sentence is fully written, close line (by inserting newline)
+            
+    return
+
+
+def append_sentence(sentence, file_path):
+    """Appends sentence to file at file_path. 
+    Useful for recording each row's output of preprocess_wem() one sentence at a time.
+    Input: Sentence (list of strings), path to file to save it
+    Output: Nothing (saves to disk)"""
+
+    with open(file_path, 'a+') as file_handler:
+        for word in sentence: # Iterate over words in sentence
+            if word == "":
+                pass
+            else:
+                file_handler.write(word + " ") # Write each word on same line, followed by space
+            
+        file_handler.write("\n") # After sentence is fully written, close line (by inserting newline)
+            
+    return
+
+    
+def load_tokslist(file_path):
+    """Loads from file and word-tokenizes list of "\n"-separated, possibly multi-word strings (i.e., sentences). 
+    Output must be assigned to object.
+    Input: Path to file with list of strings
+    Output: List of word-tokenized strings, i.e. sentences"""
     
     textlist = []
+    
     with open(file_path) as file_handler:
-        line = file_handler.readline()
-        while line:
-            textlist.append(line)
-            line = file_handler.readline()
+        line = file_handler.readline() # Read first line
+        
+        while line: # Continue while there's still a line to read
+            textlist.append(word for word in word_tokenize(line)) # Tokenize each line by word while loading in
+            line = file_handler.readline() # Read next line
+            
     return textlist
+
+
+def clean_sentence(sentence):
+    """Removes mess and debris (unicode spaces, web formatting, isolated conjunctions, etc.) and tokenizes a sentence.
+    Input: Sentence, i.e. string that possibly includes spaces and punctuation
+    Output: Cleaned & tokenized sentence, i.e. a list of cleaned, lower-case, one-word strings"""
+    
+    # Clean up unicode and weird chars, replacing with spaces or nothing as appropriate:
+    sentence = sentence.replace(u"\xa0", u" ").replace(u"\x00", u"").replace(u"\\t", u" ").replace(u"_", u" ")
+    
+    # Lower-case and remove remaining junk bits: \x*, \u*, \b*, end-dashes, URLs, isolated conjunctions, numbers, etc:
+    sentence = list(re.sub(r"\\x.*|\\u.*|\\b.*|-$|^-|'$|^'|[*+]", "", word.lower().strip(" ")) 
+                    for word in word_tokenize(sentence) 
+                    if not (word in punctuations 
+                            or "http" in word
+                            or "www" in word
+                            or "\\" in word
+                            or word.isdigit()
+                            or word.strip() in ["s", "m", "t", "w", "f", "re", "'s", "ve", "'ve", "d", "ll", "p"]
+                            or word.lower().replace('','').replace('.','').replace(',','').replace(':','').
+                            replace(';','').replace('/','').replace('k','').replace('e','').replace('a','').
+                            replace('am','').replace('p','').replace('pm','').isdigit()))
+        
+    return sentence # Return clean, tokenized sentence
 
 
 # ## Preprocessing I: Tokenize web text by sentences
@@ -134,15 +206,10 @@ def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
     This function loops over five nested levels, which from high to low are: row, tuple, chunk, sentence, word.
     Note: This approach maintains accurate semantic distances by keeping stopwords.'''
         
-    global words_by_sentence # Grants access to variable holding a list of lists of words, where each list of words represents a sentence in its original order
+    global mpdo # Check if we're doing multiprocessing. If so, then mpdo=True
+    global words_by_sentence # Grants access to variable holding a list of lists of words, where each list of words represents a sentence in its original order (only relevant for this function if we're not using multiprocessing)
     global pcount # Grants access to preprocessing counter
     
-    # For testing purposes:
-    #if limit!=-1 and pcount>int(limit):
-    #    return
-    #if start!=-1 and pcount<int(start):
-    #    return
-
     known_pages = set() # Initialize list of known pages for a school
 
     if type(tuplist)==float:
@@ -155,27 +222,23 @@ def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
             continue # Skip this page if exactly the same as a previous page on this school's website
 
         for chunk in tup[3].split('\n'): #.split('\x').replace('\xa0','').replace('\x92',''):
-            for sent in sent_tokenize(chunk): # Clean up words: lower-case; remove unicode spaces ('\xa0'),tabs ('\t'), end-dashes, and any other leftovers ('\u*', '\x*', '\b*')
-                words_by_sentence.append(list(re.sub(r"\\x.*|\\u.*|\\b.*|-$|^-|'$|^'|[*+]", "", 
-                                                     word.lower().replace(u"\xa0", u" ").replace(u"\x00", u"").replace(u"\\t", u" ").replace(u"_", u" ").strip(" ")) 
-                                         for word in word_tokenize(sent) 
-                                         if not (word in punctuations 
-                                                 or "http" in word
-                                                 or "www" in word
-                                                 or "\\" in word
-                                                 or word.isdigit()
-                                                 or word=="s"
-                                                 or word=="m"
-                                                 or word=="t"
-                                                 or word=="re"
-                                                 or word=="'s"
-                                                 or word=="ve"
-                                                 or word=="d"
-                                                 or word=="ll"
-                                                 or word=="p"
-                                                 or word=="pm"
-                                                 or word.lower().replace('-','').replace('.','').replace(',','').replace(':','').replace(';','').replace('/','').replace('k','').replace('e','').replace('a','').replace('am','').replace('p','').replace('pm','').isdigit())))
-
+            for sent in sent_tokenize(chunk): # Tokenize chunk by sentences (in case >1 sentence in chunk)
+                sent = clean_sentence(sent) # Clean and tokenize sentence
+                
+                # Save preprocessing sentence to file (if multiprocessing) or to object (if not multiprocessing)
+                if mpdo:
+                    try: 
+                        if (os.path.exists(wordsent_path)) and (os.path.getsize(wordsent_path) > 0): 
+                            append_sentence(sent, wordsent_path) # If file not empty, add to end of file
+                        else:
+                            write_sentence(sent, wordsent_path) # If file doesn't exist or is empty, start file
+                    except FileNotFoundError or OSError: # Handle common errors when calling os.path functions on non-existent files
+                        write_sentence(sent, wordsent_path) # Start file
+                
+                else:
+                    words_by_sentence.append(sent) # If not multiprocessing, just add sent to object
+                    
+                    
         known_pages.add(tup[3])
     
     pcount += 1 # Add to counter
@@ -188,7 +251,12 @@ if phrased:
 
 elif sented: # Check if tokenized sentence data already exists. If so, don't bother reparsing it
     words_by_sentence = []
-    words_by_sentence = quickpickle_load(wordsent_path) # Load data back in for parsing phrases and word embeddings model
+    
+    # Load data back in for parsing phrases and word embeddings model:
+    if mpdo:
+        words_by_sentence = load_tokslist(wordsent_path) 
+    else:
+        words_by_sentence = quickpickle_load(wordsent_path) 
 
 else:
     
@@ -200,40 +268,42 @@ else:
     try:
         tqdm.pandas(desc="Tokenizing sentences") # To show progress, create & register new `tqdm` instance with `pandas`
 
-        #weblist = df["WEBTEXT"].tolist() # Convert DF into list to pass to Pool()
+        # WITH multiprocessing (faster):
+        if mpdo:
+            weblist = df["WEBTEXT"].tolist() # Convert DF into list to pass to Pool()
 
-        # Use multiprocessing.Pool(numcpus) to run preprocess_wem:
-        #print("Preprocessing web text into list of sentences...")
-        #if __name__ == '__main__':
-        #    with Pool(numcpus) as p:
-        #        p.map(preprocess_wem, weblist) 
+            # Use multiprocessing.Pool(numcpus) to run preprocess_wem:
+            print("Preprocessing web text into list of sentences...")
+            if __name__ == '__main__':
+                with Pool(numcpus) as p:
+                    p.map(preprocess_wem, tqdm(weblist, desc="Tokenizing sentences")) 
 
-        # Much slower option (no multiprocessing):
-        df["WEBTEXT"].progress_apply(lambda tups: preprocess_wem(tups))
-        
-        
-        # Save data for later
-        try: # Use quickpickle to dump data into pickle file
-            if __name__ == '__main__': 
-                print("Saving list of tokenized sentences to file...")
-                t = timeit.Timer(stmt="quickpickle_dump(words_by_sentence, wordsent_path)", globals=globals())
-                print("Time elapsed saving data: " + str(round(t.timeit(1),4)),'\n')
+        # WITHOUT multiprocessing (much slower):
+        else:
+            df["WEBTEXT"].progress_apply(lambda tups: preprocess_wem(tups))
 
-            '''with open(wordsent_path, 'wb') as destfile:
-                gc.disable() # Disable garbage collector to increase speed
-                cPickle.dump(words_by_sentence, destfile)
-                gc.enable() # Enable garbage collector again'''
+            # Save data for later
+            try: # Use quickpickle to dump data into pickle file
+                if __name__ == '__main__': 
+                    print("Saving list of tokenized sentences to file...")
+                    t = timeit.Timer(stmt="quickpickle_dump(words_by_sentence, wordsent_path)", globals=globals())
+                    print("Time elapsed saving data: " + str(round(t.timeit(1),4)),'\n')
 
-        except Exception as e:
-            print(str(e), "\nTrying backup save option...")
-            try:
-                # Slower way to save data:
-                with open(wordsent_path, 'wb') as destfile:
-                    t = timeit.Timer(stmt="pickle.dump(words_by_sentence, destfile)", globals=globals())
-                    print("Success! Time elapsed saving data: " + str(round(t.timeit(1),4)),'\n')
+                '''with open(wordsent_path, 'wb') as destfile:
+                    gc.disable() # Disable garbage collector to increase speed
+                    cPickle.dump(words_by_sentence, destfile)
+                    gc.enable() # Enable garbage collector again'''
 
             except Exception as e:
-                print("Failed to save sentence data: " + str(e))
+                print(str(e), "\nTrying backup save option...")
+                try:
+                    # Slower way to save data:
+                    with open(wordsent_path, 'wb') as destfile:
+                        t = timeit.Timer(stmt="pickle.dump(words_by_sentence, destfile)", globals=globals())
+                        print("Success! Time elapsed saving data: " + str(round(t.timeit(1),4)),'\n')
+
+                except Exception as e:
+                    print("Failed to save sentence data: " + str(e))
 
     except Exception as e:
         print("Failed to tokenize sentences: " + str(e))

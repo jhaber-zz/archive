@@ -52,13 +52,13 @@ mpdo = False # Set to 'True' if using multiprocessing--faster for creating words
 
 # Define file paths
 if mpdo:
-    wordsent_path = "../data/wem_wordsent_data_train250_nostem_unlapped.txt"
+    wordsent_path = "../data/wem_wordsent_data_train250_nostem_unlapped_clean.txt"
 else:
-    wordsent_path = "../data/wem_wordsent_data_train250_nostem_unlapped.pkl"
+    wordsent_path = "../data/wem_wordsent_data_train250_nostem_unlapped_clean.pkl"
 charters_path = "../../nowdata/traincf_2015.pkl" # All text data; only charter schools (regardless if open or not)
-phrasesent_path = "../data/wem_phrasesent_data_train250_nostem_unlapped.pkl"
+phrasesent_path = "../data/wem_phrasesent_data_train250_nostem_unlapped_clean.pkl"
 #wemdata_path = "../data/wem_data.pkl"
-model_path = "../data/wem_model_train250_nostem_unlapped_300d.txt"
+model_path = "../data/wem_model_train250_nostem_unlapped_300d_clean.txt"
 
 
 # Check if sentences data already exists, to save time
@@ -171,7 +171,7 @@ def load_tokslist(file_path):
     return textlist
 
 
-def clean_sentence(sentence):
+def clean_sentence(sentence): #edit
     """Removes mess and debris (unicode spaces, web formatting, isolated conjunctions, etc.) and tokenizes a sentence.
     Input: Sentence, i.e. string that possibly includes spaces and punctuation
     Output: Cleaned & tokenized sentence, i.e. a list of cleaned, lower-case, one-word strings"""

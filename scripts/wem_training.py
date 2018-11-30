@@ -118,18 +118,22 @@ for state in states:
 for state in [state.lower() for state in states]:
     stop_word_list.append(state)
     
-# Create list of punctuation
+# Create punctuations list
 import string # for one method of eliminating punctuation
 punctuations = list(string.punctuation) # assign list of common punctuation symbols
-punctuations+=['*','•','©','–','–','``','’','“','”','...','»',"''",'..._...','--','×','|_','_','§','…','⎫'] # Add a few more punctuations also common in web text
+addpuncts = ['*','•','©','–','–','`','’','“','”','»','.','-','×','|','_','§','…','⎫'] # a few more punctuations also common in web text
+punctuations += addpuncts # Expand punctuations list
 punctuations.remove('-') # Don't remove hyphens - dashes at beginning and end of words are handled separately)
 punctuations.remove("'") # Don't remove possessive apostrophes - those at beginning and end of words are handled separately
+punctstr = "".join([char for char in list(set(punctuations))]) # Turn into string for regex later
 
 # Create list of unicode characters
 unicode_list  = []
 for i in range(1000,3000):
     unicode_list.append(chr(i))
 unicode_list.append("_cid:10") # Common in webtext junk
+
+print("Sentence cleaning preliminaries complete...")
 
 
 # ## Define helper functions
@@ -248,7 +252,7 @@ def clean_sentence(sentence):
     Returns: 
         Cleaned & tokenized sentence, i.e. a list of cleaned, lower-case, one-word strings"""
     
-    global unicode_list, punctuations, stop_word_list # Access useful lists
+    global unicode_list, punctstr, stop_word_list # Access useful lists
     
     # Replace unicode spaces, tabs, and underscores with spaces, and remove whitespaces from start/end of sentence:
     sentence = sentence.replace(u"\xa0", u" ").replace(u"\\t", u" ").replace(u"_", u" ").strip(" ")
@@ -275,13 +279,13 @@ def clean_sentence(sentence):
             and (not word.endswith(('.jpg', '.pdf', 'png', 'jpeg', 'php')))): 
             
             # Remove punctuation (only after URLs removed) and lower-case:
-            word = re.sub(r"["+punctuations+"]|[-$]+|^-+|['$]+|^'+", r'', word.lower()) 
+            word = re.sub(r"["+punctstr+"]|[-$]+|^-+|['$]+|^'+", r'', word.lower()) # Remove dashes and apostrophes only from start/end of words
             
-            if not word.replace('k','').replace('e','').replace('a','').replace('am','').replace('p','').replace('pm', '').isdigit(): # Remove numbers
+            if not word.replace('k','').replace('e','').replace('a','').replace('am','').replace('p','').replace('pm', '').replace('-','').isdigit(): # Remove numbers
                 
-                sent_list.append(re.sub(r'['+punctuations+']', r'', word.lower())) # Add word to list
+                sent_list.append(word) # Add word to list
 
-    return sent_list
+    return sent_list # Return clean, tokenized sentence
 
 
 def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
@@ -334,7 +338,9 @@ def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
 
 
 # ## Preprocessing I: Tokenize web text by sentences
+
 df = quickpickle_load(charters_path) # Load charter data into DF
+print("DF loaded from " + str(charters_path) + "...")
 
 if phrased: 
     pass # If parsed sentence phrase data exists, don't bother with tokenizing sentences

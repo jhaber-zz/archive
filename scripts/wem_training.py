@@ -9,9 +9,10 @@
 # Date last edited: November 8, 2018
 
 
-# ## Initialize Python
+# ## Initialize
 
 # Import general packages
+import imp, importlib # For working with modules
 import nltk # for natural language processing tools
 import pandas as pd # for working with dataframes
 #from pandas.core.groupby.groupby import PanelGroupBy # For debugging
@@ -22,19 +23,16 @@ import sys # For terminal tricks
 import _pickle as cPickle # Optimized version of pickle
 import gc # For managing garbage collector
 import timeit # For counting time taken for a process
+import datetime # For working with dates & times
 
 # Import packages for cleaning, tokenizing, and stemming text
 import re # For parsing text
 from unicodedata import normalize # for cleaning text by converting unicode character encodings into readable format
 from nltk import word_tokenize, sent_tokenize # widely used text tokenizer
 from nltk.stem.porter import PorterStemmer # an approximate method of stemming words (it just cuts off the ends)
-from nltk.corpus import stopwords # for eliminating stop words
-stopenglish = list(stopwords.words("english")) # assign list of english stopwords
-import string # for one method of eliminating punctuation
-punctuations = list(string.punctuation) # assign list of common punctuation symbols
-punctuations+=['*','•','©','–','–','``','’','“','”','...','»',"''",'..._...','--','×','|_','_','§','…','⎫'] # Add a few more punctuations also common in web text
 from nltk.stem.porter import PorterStemmer # approximate but effective (and common) method of normalizing words: stems words by implementing a hierarchy of linguistic rules that transform or cut off word endings
 stem = PorterStemmer().stem # Makes stemming more accessible
+from nltk.corpus import stopwords # for eliminating stop words
 import gensim # For word embedding models
 from gensim.models.phrases import Phrases # Makes word2vec more robust: Looks not just at  To look for multi-word phrases within word2vec
 
@@ -46,9 +44,9 @@ pool = Pool(processes=numcpus) # Pre-load number of CPUs into pool function
 import Cython # For parallelizing word2vec
 
 mpdo = False # Set to 'True' if using multiprocessing--faster for creating words by sentence file, but more complicated
+    
 
-
-# ## Read in data
+# ## Prepare to read data
 
 # Define file paths
 if mpdo:
@@ -59,7 +57,7 @@ charters_path = "../../nowdata/traincf_2015.pkl" # All text data; only charter s
 phrasesent_path = "../data/wem_phrasesent_data_train250_nostem_unlapped_clean.pkl"
 #wemdata_path = "../data/wem_data.pkl"
 model_path = "../data/wem_model_train250_nostem_unlapped_300d_clean.txt"
-
+vocab_path = "../data/wem_vocab_train250_nostem_unlapped_300d_clean.txt"
 
 # Check if sentences data already exists, to save time
 try:
@@ -80,11 +78,58 @@ try:
         phrased = False
 except FileNotFoundError or OSError: # Handle common errors when calling os.path.getsize() on non-existent files
     phrased = False
+    
+    
+# ## Create lists of stopwords, punctuation, and unicode characters
 
-# Load charter data into DF
-gc.disable() # disable garbage collector
-df = pd.read_pickle(charters_path)
-gc.enable() # enable garbage collector again
+# Create stopwords list
+stop_word_list = list(set(stopwords.words("english"))) # list of english stopwords
+# Add dates
+for i in range(1,13):
+    stop_word_list.append(datetime.date(2008, i, 1).strftime('%B'))
+for i in range(1,13):
+    stop_word_list.append((datetime.date(2008, i, 1).strftime('%B')).lower())
+for i in range(1, 2100):
+    stop_word_list.append(str(i))
+stop_word_list.append('00') 
+stop_word_list.extend(['mr', 'mrs', 'sa', 'fax', 'email', 'phone', 'am', 'pm', 'org', 'com', 
+                       'Menu', 'Contact Us', 'Facebook', 'Calendar', 'Lunch', 'Breakfast', 'FAQs', 'FAQ']) # Add common website stopwords
+stop_word_list.extend(['el', 'en', 'la', 'los', 'para', 'las', 'san']) # Add common Spanish stopwords
+stop_word_list.extend(['angeles', 'diego', 'harlem', 'bronx', 'austin', 'antonio']) # Add common cities with charter schools
+
+# Add state names & abbreviations (both uppercase and lowercase)
+states = ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DC", "DE", "FL", 
+          "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", 
+          "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", 
+          "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", 
+          "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WI", "WV", "WY", 
+          "Alabama", "Alaska", "Arizona", "Arkansas", "California", 
+          "Colorado", "Connecticut", "District of Columbia", "Delaware", "Florida", 
+          "Georgia", "Hawaii", "Idaho", "Illinois", "Indiana", 
+          "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine", 
+          "Maryland", "Massachusetts", "Michigan", "Minnesota", "Mississippi", 
+          "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", 
+          "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota", 
+          "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", 
+          "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", 
+          "Vermont", "Virginia", "Washington", "Wisconsin", "West Virginia", "Wyoming"]
+for state in states:
+    stop_word_list.append(state)
+for state in [state.lower() for state in states]:
+    stop_word_list.append(state)
+    
+# Create list of punctuation
+import string # for one method of eliminating punctuation
+punctuations = list(string.punctuation) # assign list of common punctuation symbols
+punctuations+=['*','•','©','–','–','``','’','“','”','...','»',"''",'..._...','--','×','|_','_','§','…','⎫'] # Add a few more punctuations also common in web text
+punctuations.remove('-') # Don't remove hyphens - dashes at beginning and end of words are handled separately)
+punctuations.remove("'") # Don't remove possessive apostrophes - those at beginning and end of words are handled separately
+
+# Create list of unicode characters
+unicode_list  = []
+for i in range(1000,3000):
+    unicode_list.append(chr(i))
+unicode_list.append("_cid:10") # Common in webtext junk
 
 
 # ## Define helper functions
@@ -115,6 +160,29 @@ def quickpickle_dump(dumpvar, picklepath):
         gc.disable() # disable garbage collector
         cPickle.dump(dumpvar, destfile) # Dump dumpvar to picklepath
         gc.enable() # enable garbage collector again
+    
+    
+def write_list(file_path, textlist):
+    """Writes textlist to file_path. Useful for recording output of parse_school()."""
+    
+    with open(file_path, 'w') as file_handler:
+        
+        for elem in textlist:
+            file_handler.write("{}\n".format(elem))
+    
+    return    
+
+
+def load_list(file_path):
+    """Loads list into memory. Must be assigned to object."""
+    
+    textlist = []
+    with open(file_path) as file_handler:
+        line = file_handler.readline()
+        while line:
+            textlist.append(line)
+            line = file_handler.readline()
+    return textlist
     
     
 def write_sentence(sentence, file_path):
@@ -171,31 +239,50 @@ def load_tokslist(file_path):
     return textlist
 
 
-def clean_sentence(sentence): #edit
-    """Removes mess and debris (unicode spaces, web formatting, isolated conjunctions, etc.) and tokenizes a sentence.
-    Input: Sentence, i.e. string that possibly includes spaces and punctuation
-    Output: Cleaned & tokenized sentence, i.e. a list of cleaned, lower-case, one-word strings"""
+def clean_sentence(sentence):
+    """Removes numbers, emails, URLs, unicode characters, hex characters, and punctuation from a sentence 
+    separated by whitespaces. Returns a tokenized, cleaned list of words from the sentence.
     
-    # Clean up unicode and weird chars, replacing with spaces or nothing as appropriate:
-    sentence = sentence.replace(u"\xa0", u" ").replace(u"\x00", u"").replace(u"\\t", u" ").replace(u"_", u" ")
+    Args: 
+        Sentence, i.e. string that possibly includes spaces and punctuation
+    Returns: 
+        Cleaned & tokenized sentence, i.e. a list of cleaned, lower-case, one-word strings"""
     
-    # Lower-case and remove remaining junk bits: \x*, \u*, \b*, end-dashes, URLs, isolated conjunctions, numbers, etc:
-    sentence = list(re.sub(r"\\x.*|\\u.*|\\b.*|-$|^-|'$|^'|[*+]", "", word.lower().strip(" ")) 
-                    for word in word_tokenize(sentence) 
-                    if not (word in punctuations 
-                            or "http" in word
-                            or "www" in word
-                            or "\\" in word
-                            or word.isdigit()
-                            or word.strip() in ["s", "m", "t", "w", "f", "re", "'s", "ve", "'ve", "d", "ll", "p"]
-                            or word.lower().replace('','').replace('.','').replace(',','').replace(':','').
-                            replace(';','').replace('/','').replace('k','').replace('e','').replace('a','').
-                            replace('am','').replace('p','').replace('pm','').isdigit()))
+    global unicode_list, punctuations, stop_word_list # Access useful lists
+    
+    # Replace unicode spaces, tabs, and underscores with spaces, and remove whitespaces from start/end of sentence:
+    sentence = sentence.replace(u"\xa0", u" ").replace(u"\\t", u" ").replace(u"_", u" ").strip(" ")
+    
+    # Remove hex characters (e.g., \xa0\, \x80):
+    sentence = re.sub(r'[^\x00-\x7f]', r'', sentence) #replace anything that starts with a hex character 
+
+    # Replace \\x, \\u, \\b, or anything that ends with \u2605
+    sentence = re.sub(r"\\x.*|\\u.*|\\b.*|\u2605$", "", sentence)
         
-    return sentence # Return clean, tokenized sentence
+    # Remove all elements that appear in unicode_list (looks like r'u1000|u10001|'):
+    sentence = re.sub(r'|'.join(map(re.escape, unicode_list)), '', sentence)
+    
+    sent_list = [] # Initialize empty list to hold tokenized sentence (words added one at a time)
+    
+    for word in word_tokenize(sentence): # Tokenize and iterate over words
+        
+        # Skip stopwords, emails, and URLs:
+        if ((word not in stop_word_list) 
+            and ("@" not in word) 
+            and ((not word.startswith(('http', 'https', 'www')))) 
+            and (not word.endswith(('.com', '.net', '.gov', '.org'))) 
+            and (not word.startswith('//')) 
+            and (not word.endswith(('.jpg', '.pdf', 'png', 'jpeg', 'php')))): 
+            
+            # Remove punctuation (only after URLs removed) and lower-case:
+            word = re.sub(r"["+punctuations+"]|[-$]+|^-+|['$]+|^'+", r'', word.lower()) 
+            
+            if not word.replace('k','').replace('e','').replace('a','').replace('am','').replace('p','').replace('pm', '').isdigit(): # Remove numbers
+                
+                sent_list.append(re.sub(r'['+punctuations+']', r'', word.lower())) # Add word to list
 
+    return sent_list
 
-# ## Preprocessing I: Tokenize web text by sentences
 
 def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
     
@@ -245,6 +332,9 @@ def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
     
     return
 
+
+# ## Preprocessing I: Tokenize web text by sentences
+df = quickpickle_load(charters_path) # Load charter data into DF
 
 if phrased: 
     pass # If parsed sentence phrase data exists, don't bother with tokenizing sentences
@@ -368,8 +458,8 @@ Word2Vec parameter choices explained:
 - sg = 1: I choose a 'Skip-Gram' model over a CBOW (Continuous Bag of Words) model because skip-gram works better with larger data sets. It predicts words from contexts, rather than smoothing over context information by counting each context as a single observation
 - alpha = 0.025: Initial learning rate: prevents model from over-correcting, enables finer tuning
 - min_alpha = 0.001: Learning rate linearly decreases to this value over time, so learning happens more strongly at first
-- iter = 8: Eight passes/iterations over the dataset
-- batch_words = 10000: During each pass, sample batch size of 10000 words
+- iter = 10: Eight passes/iterations over the dataset
+- batch_words = 20000: During each pass, sample batch size of 20000 words
 - workers = 1: Set to 1 to guarantee reproducibility, OR accelerate by parallelizing model training across all vCPUs
 - seed = 0: To increase reproducibility of model training 
 - negative = 5: Draw 5 "noise words" in negative sampling in order to simplify weight tweaking
@@ -382,8 +472,11 @@ try:
     model = gensim.models.Word2Vec(words_by_sentence, size=300, window=8, min_count=3, sg=1, alpha=0.025, min_alpha=0.001,\
                                    iter=10, batch_words=20000, workers=1, seed=0, negative=5, ns_exponent=0.75)
     print("word2vec model TRAINED successfully!")
+    
+    # Save full vocab list:
+    write_list(vocab_path, sorted(list(model.vocab)))
 
-    # Save model for later:
+    # Save model:
     with open(model_path, 'wb') as destfile:
         try:
             model.wv.save_word2vec_format(destfile)

@@ -50,14 +50,15 @@ mpdo = False # Set to 'True' if using multiprocessing--faster for creating words
 
 # Define file paths
 if mpdo:
-    wordsent_path = "../data/wem_wordsent_data_train250_nostem_unlapped_clean.txt"
+    wordsent_path = "../data/wem_wordsent_data_train250_nostem_unlapped_clean2.txt"
 else:
-    wordsent_path = "../data/wem_wordsent_data_train250_nostem_unlapped_clean.pkl"
+    wordsent_path = "../data/wem_wordsent_data_train250_nostem_unlapped_clean2.pkl"
 charters_path = "../../nowdata/traincf_2015.pkl" # All text data; only charter schools (regardless if open or not)
-phrasesent_path = "../data/wem_phrasesent_data_train250_nostem_unlapped_clean.pkl"
+phrasesent_path = "../data/wem_phrasesent_data_train250_nostem_unlapped_clean2.pkl"
 #wemdata_path = "../data/wem_data.pkl"
-model_path = "../data/wem_model_train250_nostem_unlapped_300d_clean.txt"
-vocab_path = "../data/wem_vocab_train250_nostem_unlapped_300d_clean.txt"
+model_path = "../data/wem_model_train250_nostem_unlapped_300d_clean2.txt"
+vocab_path = "../data/wem_vocab_train250_nostem_unlapped_300d_clean2.txt"
+vocab_path_old = "../data/wem_vocab_train250_nostem_unlapped_300d_clean.txt"
 
 # Check if sentences data already exists, to save time
 try:
@@ -84,20 +85,23 @@ except FileNotFoundError or OSError: # Handle common errors when calling os.path
 
 # Create stopwords list
 stop_word_list = list(set(stopwords.words("english"))) # list of english stopwords
-# Add dates
+
+# Add dates to stopwords
 for i in range(1,13):
     stop_word_list.append(datetime.date(2008, i, 1).strftime('%B'))
 for i in range(1,13):
     stop_word_list.append((datetime.date(2008, i, 1).strftime('%B')).lower())
 for i in range(1, 2100):
     stop_word_list.append(str(i))
+
+# Add other common stopwords
 stop_word_list.append('00') 
 stop_word_list.extend(['mr', 'mrs', 'sa', 'fax', 'email', 'phone', 'am', 'pm', 'org', 'com', 
-                       'Menu', 'Contact Us', 'Facebook', 'Calendar', 'Lunch', 'Breakfast', 'FAQs', 'FAQ']) # Add common website stopwords
-stop_word_list.extend(['el', 'en', 'la', 'los', 'para', 'las', 'san']) # Add common Spanish stopwords
-stop_word_list.extend(['angeles', 'diego', 'harlem', 'bronx', 'austin', 'antonio']) # Add common cities with charter schools
+                       'Menu', 'Contact Us', 'Facebook', 'Calendar', 'Lunch', 'Breakfast', 'FAQs', 'FAQ']) # web stopwords
+stop_word_list.extend(['el', 'en', 'la', 'los', 'para', 'las', 'san']) # Spanish stopwords
+stop_word_list.extend(['angeles', 'diego', 'harlem', 'bronx', 'austin', 'antonio']) # cities with many charter schools
 
-# Add state names & abbreviations (both uppercase and lowercase)
+# Add state names & abbreviations (both uppercase and lowercase) to stopwords
 states = ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DC", "DE", "FL", 
           "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", 
           "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", 
@@ -117,11 +121,21 @@ for state in states:
     stop_word_list.append(state)
 for state in [state.lower() for state in states]:
     stop_word_list.append(state)
+
+# Add to stopwords useless and hard-to-formalize words/chars from first chunk of previous model vocab (e.g., a3d0, \fs19)
+# First create whitelist of useful terms probably in that list, explicitly exclude from junk words list both these and words with underscores (common phrases)
+whitelist = ["Pre-K", "pre-k", "pre-K", "preK", "prek", 
+             "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"]
+with open(vocab_path_old) as f: # Load vocab from previous model
+    junk_words = f.read().splitlines() 
+junk_words = [word for word in junk_words[:8511] if ((not "_" in word) 
+                                                     and (not any(term in word for term in whitelist)))]
+stop_word_list.extend(junk_words)
     
 # Create punctuations list
 import string # for one method of eliminating punctuation
 punctuations = list(string.punctuation) # assign list of common punctuation symbols
-addpuncts = ['*','•','©','–','–','`','’','“','”','»','.','-','×','|','_','§','…','⎫'] # a few more punctuations also common in web text
+addpuncts = ['*','•','©','–','`','’','“','”','»','.','×','|','_','§','…','⎫'] # a few more punctuations also common in web text
 punctuations += addpuncts # Expand punctuations list
 punctuations.remove('-') # Don't remove hyphens - dashes at beginning and end of words are handled separately)
 punctuations.remove("'") # Don't remove possessive apostrophes - those at beginning and end of words are handled separately
@@ -418,7 +432,7 @@ else:
     try:
         print("Detecting and parsing phrases in list of sentences...")
         # Threshold represents a threshold for forming the phrases (higher means fewer phrases). A phrase of words a and b is accepted if (cnt(a, b) - min_count) * N / (cnt(a) * cnt(b)) > threshold, where N is the total vocabulary size. By default this value is 10.0
-        phrases = Phrases(words_by_sentence, min_count=3, delimiter=b'_', common_terms=stopenglish, threshold=10) # Detect phrases in sentences based on collocation counts
+        phrases = Phrases(words_by_sentence, min_count=3, delimiter=b'_', common_terms=stop_word_list, threshold=10) # Detect phrases in sentences based on collocation counts
         words_by_sentence = [phrases[sent] for sent in tqdm(words_by_sentence, desc="Parsing phrases")] # Apply phrase detection model to each sentence in data
 
     except Exception as e:
@@ -459,12 +473,12 @@ print(words_by_sentence[:150])
 ''' 
 Word2Vec parameter choices explained:
 - size = 300: Use hundreds of dimensions/degrees of freedom to generate accurate models from this large data set
-- window = 8: Observe window of 6 context words in each direction, keeping word-word relationships moderately tight
+- window = 8: Observe window of 8 context words in each direction, keeping word-word relationships moderately tight
 - min_count = 3: Exclude very rare words, which occur just once or twice and typically are irrelevant proper nouns
 - sg = 1: I choose a 'Skip-Gram' model over a CBOW (Continuous Bag of Words) model because skip-gram works better with larger data sets. It predicts words from contexts, rather than smoothing over context information by counting each context as a single observation
 - alpha = 0.025: Initial learning rate: prevents model from over-correcting, enables finer tuning
 - min_alpha = 0.001: Learning rate linearly decreases to this value over time, so learning happens more strongly at first
-- iter = 10: Eight passes/iterations over the dataset
+- iter = 10: Ten passes/iterations over the dataset
 - batch_words = 20000: During each pass, sample batch size of 20000 words
 - workers = 1: Set to 1 to guarantee reproducibility, OR accelerate by parallelizing model training across all vCPUs
 - seed = 0: To increase reproducibility of model training 
@@ -478,9 +492,6 @@ try:
     model = gensim.models.Word2Vec(words_by_sentence, size=300, window=8, min_count=3, sg=1, alpha=0.025, min_alpha=0.001,\
                                    iter=10, batch_words=20000, workers=1, seed=0, negative=5, ns_exponent=0.75)
     print("word2vec model TRAINED successfully!")
-    
-    # Save full vocab list:
-    write_list(vocab_path, sorted(list(model.vocab)))
 
     # Save model:
     with open(model_path, 'wb') as destfile:
@@ -494,6 +505,11 @@ try:
                 print("word2vec model SAVED to " + str(model_path))
             except Exception as e:
                 print(str(e))
+               
+    # Load word2vec model and save vocab list
+    model = gensim.models.KeyedVectors.load_word2vec_format(model_path)
+    write_list(vocab_path, sorted(list(model.vocab)))
+    print("word2vec model VOCAB saved to " + str(vocab_path))
 
 except Exception as e:
     print(str(e))

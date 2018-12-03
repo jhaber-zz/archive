@@ -56,7 +56,7 @@ else:
 charters_path = "../../nowdata/traincf_2015.pkl" # All text data; only charter schools (regardless if open or not)
 phrasesent_path = "../data/wem_phrasesent_data_train250_nostem_unlapped_clean2.pkl"
 #wemdata_path = "../data/wem_data.pkl"
-model_path = "../data/wem_model_train250_nostem_unlapped_300d_clean2.txt"
+model_path = "../data/wem_model_train250_nostem_unlapped_100d_clean2.txt"
 vocab_path = "../data/wem_vocab_train250_nostem_unlapped_300d_clean2.txt"
 vocab_path_old = "../data/wem_vocab_train250_nostem_unlapped_300d_clean.txt"
 
@@ -125,7 +125,15 @@ for state in [state.lower() for state in states]:
 # Add to stopwords useless and hard-to-formalize words/chars from first chunk of previous model vocab (e.g., a3d0, \fs19)
 # First create whitelist of useful terms probably in that list, explicitly exclude from junk words list both these and words with underscores (common phrases)
 whitelist = ["Pre-K", "pre-k", "pre-K", "preK", "prek", 
-             "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"]
+             "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th", 
+             "1st-grade", "2nd-grade", "3rd-grade", "4th-grade", "5th-grade", "6th-grade", 
+             "7th-grade", "8th-grade", "9th-grade", "10th-grade", "11th-grade", "12th-grade", 
+             "1st-grader", "2nd-grader", "3rd-grader", "4th-grader", "5th-grader", "6th-grader", 
+             "7th-grader", "8th-grader", "9th-grader", "10th-grader", "11th-grader", "12th-grader", 
+             "1stgrade", "2ndgrade", "3rdgrade", "4thgrade", "5thgrade", "6thgrade", 
+             "7thgrade", "8thgrade", "9thgrade", "10thgrade", "11thgrade", "12thgrade", 
+             "1stgrader", "2ndgrader", "3rdgrader", "4thgrader", "5thgrader", "6thgrader", 
+             "7thgrader", "8thgrader", "9thgrader", "10thgrader", "11thgrader", "12thgrader"]
 with open(vocab_path_old) as f: # Load vocab from previous model
     junk_words = f.read().splitlines() 
 junk_words = [word for word in junk_words[:8511] if ((not "_" in word) 
@@ -282,15 +290,15 @@ def clean_sentence(sentence):
     
     sent_list = [] # Initialize empty list to hold tokenized sentence (words added one at a time)
     
-    for word in word_tokenize(sentence): # Tokenize and iterate over words
+    for word in sentence.split(" "): # Split by spaces and iterate over words
         
         # Skip stopwords, emails, and URLs:
-        if ((word not in stop_word_list) 
-            and ("@" not in word) 
-            and ((not word.startswith(('http', 'https', 'www')))) 
-            and (not word.endswith(('.com', '.net', '.gov', '.org'))) 
-            and (not word.startswith('//')) 
-            and (not word.endswith(('.jpg', '.pdf', 'png', 'jpeg', 'php')))): 
+        if (("@" not in word) and
+            ((not word.startswith(('http', 'https', 'www')))) and
+            (not word.endswith(('.com', '.net', '.gov', '.org'))) and 
+            (not word.startswith('//')) and 
+            (not word.endswith(('.jpg', '.pdf', 'png', 'jpeg', 'php'))) and 
+            (word not in stop_word_list)):
             
             # Remove punctuation (only after URLs removed) and lower-case:
             word = re.sub(r"["+punctstr+"]|[-$]+|^-+|['$]+|^'+", r'', word.lower()) # Remove dashes and apostrophes only from start/end of words
@@ -329,6 +337,9 @@ def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
         for chunk in tup[3].split('\n'): #.split('\x').replace('\xa0','').replace('\x92',''):
             for sent in sent_tokenize(chunk): # Tokenize chunk by sentences (in case >1 sentence in chunk)
                 sent = clean_sentence(sent) # Clean and tokenize sentence
+                
+                if ((sent == []) or (len(sent) == 0)): # If sentence is empty, continue to next sentence without appending
+                    continue
                 
                 # Save preprocessing sentence to file (if multiprocessing) or to object (if not multiprocessing)
                 if mpdo:
@@ -432,7 +443,7 @@ else:
     try:
         print("Detecting and parsing phrases in list of sentences...")
         # Threshold represents a threshold for forming the phrases (higher means fewer phrases). A phrase of words a and b is accepted if (cnt(a, b) - min_count) * N / (cnt(a) * cnt(b)) > threshold, where N is the total vocabulary size. By default this value is 10.0
-        phrases = Phrases(words_by_sentence, min_count=3, delimiter=b'_', common_terms=stop_word_list, threshold=10) # Detect phrases in sentences based on collocation counts
+        phrases = Phrases(words_by_sentence, min_count=3, delimiter=b'_', common_terms=stop_word_list, threshold=8) # Detect phrases in sentences based on collocation counts
         words_by_sentence = [phrases[sent] for sent in tqdm(words_by_sentence, desc="Parsing phrases")] # Apply phrase detection model to each sentence in data
 
     except Exception as e:

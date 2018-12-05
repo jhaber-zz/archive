@@ -56,7 +56,7 @@ else:
 charters_path = "../../nowdata/traincf_2015.pkl" # All text data; only charter schools (regardless if open or not)
 phrasesent_path = "../data/wem_phrasesent_data_train250_nostem_unlapped_clean2.pkl"
 #wemdata_path = "../data/wem_data.pkl"
-model_path = "../data/wem_model_train250_nostem_unlapped_100d_clean2.txt"
+model_path = "../data/wem_model_train250_nostem_unlapped_300d_clean2.txt"
 vocab_path = "../data/wem_vocab_train250_nostem_unlapped_300d_clean2.txt"
 vocab_path_old = "../data/wem_vocab_train250_nostem_unlapped_300d_clean.txt"
 
@@ -143,11 +143,12 @@ stop_word_list.extend(junk_words)
 # Create punctuations list
 import string # for one method of eliminating punctuation
 punctuations = list(string.punctuation) # assign list of common punctuation symbols
-addpuncts = ['*','•','©','–','`','’','“','”','»','.','×','|','_','§','…','⎫'] # a few more punctuations also common in web text
-punctuations += addpuncts # Expand punctuations list
+#addpuncts = ['*','•','©','–','`','’','“','”','»','.','×','|','_','§','…','⎫'] # a few more punctuations also common in web text
+#punctuations += addpuncts # Expand punctuations list
+#punctuations = list(set(punctuations)) # Remove duplicates
 punctuations.remove('-') # Don't remove hyphens - dashes at beginning and end of words are handled separately)
 punctuations.remove("'") # Don't remove possessive apostrophes - those at beginning and end of words are handled separately
-punctstr = "".join([char for char in list(set(punctuations))]) # Turn into string for regex later
+punctstr = "".join([char for char in punctuations]) # Turn into string for regex later
 
 # Create list of unicode characters
 unicode_list  = []
@@ -288,24 +289,22 @@ def clean_sentence(sentence):
     # Remove all elements that appear in unicode_list (looks like r'u1000|u10001|'):
     sentence = re.sub(r'|'.join(map(re.escape, unicode_list)), '', sentence)
     
+    sentence = re.sub("\d+", "", sentence) # Remove numbers
+    
     sent_list = [] # Initialize empty list to hold tokenized sentence (words added one at a time)
     
-    for word in sentence.split(" "): # Split by spaces and iterate over words
+    for word in sentence.split(): # Split by spaces and iterate over words
         
-        # Skip stopwords, emails, and URLs:
-        if (("@" not in word) and
-            ((not word.startswith(('http', 'https', 'www')))) and
-            (not word.endswith(('.com', '.net', '.gov', '.org'))) and 
-            (not word.startswith('//')) and 
-            (not word.endswith(('.jpg', '.pdf', 'png', 'jpeg', 'php'))) and 
-            (word not in stop_word_list)):
+        word = word.strip() # Remove leading and trailing spaces
+        
+        # Filter out emails and URLs:
+        if ("@" not in word and not word.startswith(('http', 'https', 'www', '//', '\\')) and not word.endswith(('.com', '.net', '.gov', '.org', '.jpg', '.pdf', 'png', 'jpeg', 'php'))):
             
-            # Remove punctuation (only after URLs removed) and lower-case:
-            word = re.sub(r"["+punctstr+"]|[-$]+|^-+|['$]+|^'+", r'', word.lower()) # Remove dashes and apostrophes only from start/end of words
-            
-            if not word.replace('k','').replace('e','').replace('a','').replace('am','').replace('p','').replace('pm', '').replace('-','').isdigit(): # Remove numbers
+            # Remove punctuation (only after URLs removed):
+            word = re.sub(r"["+punctstr+"]+|[-$]+|^-+|['$]+|^'+", r'', word) # Remove dashes and apostrophes only from start/end of words
+            if word not in stop_word_list: # Filter out stop words
                 
-                sent_list.append(word) # Add word to list
+                sent_list.append(word.lower()) # Add lower-cased word to list
 
     return sent_list # Return clean, tokenized sentence
 
@@ -334,7 +333,7 @@ def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
         if tup[3] in known_pages or tup=='': # Could use hashing to speed up comparison: hashlib.sha224(tup[3].encode()).hexdigest()
             continue # Skip this page if exactly the same as a previous page on this school's website
 
-        for chunk in tup[3].split('\n'): #.split('\x').replace('\xa0','').replace('\x92',''):
+        for chunk in tup[3].split('\n'): 
             for sent in sent_tokenize(chunk): # Tokenize chunk by sentences (in case >1 sentence in chunk)
                 sent = clean_sentence(sent) # Clean and tokenize sentence
                 

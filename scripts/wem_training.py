@@ -36,6 +36,10 @@ from nltk.corpus import stopwords # for eliminating stop words
 import gensim # For word embedding models
 from gensim.models.phrases import Phrases # Makes word2vec more robust: Looks not just at  To look for multi-word phrases within word2vec
 
+# For loading functions from files in data_tools directory:
+import sys; sys.path.insert(0, "../../text_analysis/parsing")
+
+
 # Import packages for multiprocessing
 import os # For navigation
 numcpus = len(os.sched_getaffinity(0)) # Detect and assign number of available CPUs
@@ -56,7 +60,7 @@ else:
 charters_path = "../../nowdata/traincf_2015.pkl" # All text data; only charter schools (regardless if open or not)
 phrasesent_path = "../data/wem_phrasesent_data_train250_nostem_unlapped_clean2.pkl"
 #wemdata_path = "../data/wem_data.pkl"
-model_path = "../data/wem_model_train250_nostem_unlapped_300d_clean2.txt"
+model_path = "../data/wem_model_train250_nostem_unlapped_300d_clean2.bin"
 vocab_path = "../data/wem_vocab_train250_nostem_unlapped_300d_clean2.txt"
 vocab_path_old = "../data/wem_vocab_train250_nostem_unlapped_300d_clean.txt"
 
@@ -83,78 +87,7 @@ except FileNotFoundError or OSError: # Handle common errors when calling os.path
     
 # ## Create lists of stopwords, punctuation, and unicode characters
 
-# Create stopwords list
-stop_word_list = list(set(stopwords.words("english"))) # list of english stopwords
-
-# Add dates to stopwords
-for i in range(1,13):
-    stop_word_list.append(datetime.date(2008, i, 1).strftime('%B'))
-for i in range(1,13):
-    stop_word_list.append((datetime.date(2008, i, 1).strftime('%B')).lower())
-for i in range(1, 2100):
-    stop_word_list.append(str(i))
-
-# Add other common stopwords
-stop_word_list.append('00') 
-stop_word_list.extend(['mr', 'mrs', 'sa', 'fax', 'email', 'phone', 'am', 'pm', 'org', 'com', 
-                       'Menu', 'Contact Us', 'Facebook', 'Calendar', 'Lunch', 'Breakfast', 'FAQs', 'FAQ']) # web stopwords
-stop_word_list.extend(['el', 'en', 'la', 'los', 'para', 'las', 'san']) # Spanish stopwords
-stop_word_list.extend(['angeles', 'diego', 'harlem', 'bronx', 'austin', 'antonio']) # cities with many charter schools
-
-# Add state names & abbreviations (both uppercase and lowercase) to stopwords
-states = ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DC", "DE", "FL", 
-          "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", 
-          "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", 
-          "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", 
-          "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WI", "WV", "WY", 
-          "Alabama", "Alaska", "Arizona", "Arkansas", "California", 
-          "Colorado", "Connecticut", "District of Columbia", "Delaware", "Florida", 
-          "Georgia", "Hawaii", "Idaho", "Illinois", "Indiana", 
-          "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine", 
-          "Maryland", "Massachusetts", "Michigan", "Minnesota", "Mississippi", 
-          "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", 
-          "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota", 
-          "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", 
-          "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", 
-          "Vermont", "Virginia", "Washington", "Wisconsin", "West Virginia", "Wyoming"]
-for state in states:
-    stop_word_list.append(state)
-for state in [state.lower() for state in states]:
-    stop_word_list.append(state)
-
-# Add to stopwords useless and hard-to-formalize words/chars from first chunk of previous model vocab (e.g., a3d0, \fs19)
-# First create whitelist of useful terms probably in that list, explicitly exclude from junk words list both these and words with underscores (common phrases)
-whitelist = ["Pre-K", "pre-k", "pre-K", "preK", "prek", 
-             "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th", 
-             "1st-grade", "2nd-grade", "3rd-grade", "4th-grade", "5th-grade", "6th-grade", 
-             "7th-grade", "8th-grade", "9th-grade", "10th-grade", "11th-grade", "12th-grade", 
-             "1st-grader", "2nd-grader", "3rd-grader", "4th-grader", "5th-grader", "6th-grader", 
-             "7th-grader", "8th-grader", "9th-grader", "10th-grader", "11th-grader", "12th-grader", 
-             "1stgrade", "2ndgrade", "3rdgrade", "4thgrade", "5thgrade", "6thgrade", 
-             "7thgrade", "8thgrade", "9thgrade", "10thgrade", "11thgrade", "12thgrade", 
-             "1stgrader", "2ndgrader", "3rdgrader", "4thgrader", "5thgrader", "6thgrader", 
-             "7thgrader", "8thgrader", "9thgrader", "10thgrader", "11thgrader", "12thgrader"]
-with open(vocab_path_old) as f: # Load vocab from previous model
-    junk_words = f.read().splitlines() 
-junk_words = [word for word in junk_words[:8511] if ((not "_" in word) 
-                                                     and (not any(term in word for term in whitelist)))]
-stop_word_list.extend(junk_words)
-    
-# Create punctuations list
-import string # for one method of eliminating punctuation
-punctuations = list(string.punctuation) # assign list of common punctuation symbols
-#addpuncts = ['*','•','©','–','`','’','“','”','»','.','×','|','_','§','…','⎫'] # a few more punctuations also common in web text
-#punctuations += addpuncts # Expand punctuations list
-#punctuations = list(set(punctuations)) # Remove duplicates
-punctuations.remove('-') # Don't remove hyphens - dashes at beginning and end of words are handled separately)
-punctuations.remove("'") # Don't remove possessive apostrophes - those at beginning and end of words are handled separately
-punctstr = "".join([char for char in punctuations]) # Turn into string for regex later
-
-# Create list of unicode characters
-unicode_list  = []
-for i in range(1000,3000):
-    unicode_list.append(chr(i))
-unicode_list.append("_cid:10") # Common in webtext junk
+from clean_functions import clean_sentence, stopwords_make, punctstr_make, unicode_make
 
 print("Sentence cleaning preliminaries complete...")
 
@@ -264,49 +197,6 @@ def load_tokslist(file_path):
             line = file_handler.readline() # Read next line
             
     return textlist
-
-
-def clean_sentence(sentence):
-    """Removes numbers, emails, URLs, unicode characters, hex characters, and punctuation from a sentence 
-    separated by whitespaces. Returns a tokenized, cleaned list of words from the sentence.
-    
-    Args: 
-        Sentence, i.e. string that possibly includes spaces and punctuation
-    Returns: 
-        Cleaned & tokenized sentence, i.e. a list of cleaned, lower-case, one-word strings"""
-    
-    global unicode_list, punctstr, stop_word_list # Access useful lists
-    
-    # Replace unicode spaces, tabs, and underscores with spaces, and remove whitespaces from start/end of sentence:
-    sentence = sentence.replace(u"\xa0", u" ").replace(u"\\t", u" ").replace(u"_", u" ").strip(" ")
-    
-    # Remove hex characters (e.g., \xa0\, \x80):
-    sentence = re.sub(r'[^\x00-\x7f]', r'', sentence) #replace anything that starts with a hex character 
-
-    # Replace \\x, \\u, \\b, or anything that ends with \u2605
-    sentence = re.sub(r"\\x.*|\\u.*|\\b.*|\u2605$", "", sentence)
-        
-    # Remove all elements that appear in unicode_list (looks like r'u1000|u10001|'):
-    sentence = re.sub(r'|'.join(map(re.escape, unicode_list)), '', sentence)
-    
-    sentence = re.sub("\d+", "", sentence) # Remove numbers
-    
-    sent_list = [] # Initialize empty list to hold tokenized sentence (words added one at a time)
-    
-    for word in sentence.split(): # Split by spaces and iterate over words
-        
-        word = word.strip() # Remove leading and trailing spaces
-        
-        # Filter out emails and URLs:
-        if ("@" not in word and not word.startswith(('http', 'https', 'www', '//', '\\')) and not word.endswith(('.com', '.net', '.gov', '.org', '.jpg', '.pdf', 'png', 'jpeg', 'php'))):
-            
-            # Remove punctuation (only after URLs removed):
-            word = re.sub(r"["+punctstr+"]+|[-$]+|^-+|['$]+|^'+", r'', word) # Remove dashes and apostrophes only from start/end of words
-            if word not in stop_word_list: # Filter out stop words
-                
-                sent_list.append(word.lower()) # Add lower-cased word to list
-
-    return sent_list # Return clean, tokenized sentence
 
 
 def preprocess_wem(tuplist): # inputs were formerly: (tuplist, start, limit)
@@ -490,7 +380,7 @@ Word2Vec parameter choices explained:
 - min_alpha = 0.001: Learning rate linearly decreases to this value over time, so learning happens more strongly at first
 - iter = 10: Ten passes/iterations over the dataset
 - batch_words = 20000: During each pass, sample batch size of 20000 words
-- workers = 1: Set to 1 to guarantee reproducibility, OR accelerate by parallelizing model training across all vCPUs
+- workers = 20: Set to guarantee reproducibility; accelerates by parallelizing model training across vCPUs
 - seed = 0: To increase reproducibility of model training 
 - negative = 5: Draw 5 "noise words" in negative sampling in order to simplify weight tweaking
 - ns_exponent = 0.75: Shape negative sampling distribution using 3/4 power, which outperforms other exponents (as popularized by original word2vec paper, Mikolov et al 2013) and slightly weights against high-frequency words (1 is exact frequencies, 0 is all words equally)
@@ -500,13 +390,13 @@ Word2Vec parameter choices explained:
 try:
     print("Training word2vec model...")
     model = gensim.models.Word2Vec(words_by_sentence, size=300, window=8, min_count=3, sg=1, alpha=0.025, min_alpha=0.001,\
-                                   iter=10, batch_words=20000, workers=1, seed=0, negative=5, ns_exponent=0.75)
+                                   iter=10, batch_words=20000, workers=20, seed=0, negative=5, ns_exponent=0.75)
     print("word2vec model TRAINED successfully!")
 
     # Save model:
     with open(model_path, 'wb') as destfile:
         try:
-            model.wv.save_word2vec_format(destfile)
+            model.wv.save_word2vec_format(destfile, binary=True)
             print("word2vec model SAVED to " + str(model_path))
         except Exception as e:
             print(str(e))
@@ -517,7 +407,7 @@ try:
                 print(str(e))
                
     # Load word2vec model and save vocab list
-    model = gensim.models.KeyedVectors.load_word2vec_format(model_path)
+    model = gensim.models.KeyedVectors.load_word2vec_format(model_path, binary=True)
     write_list(vocab_path, sorted(list(model.vocab)))
     print("word2vec model VOCAB saved to " + str(vocab_path))
 

@@ -80,21 +80,21 @@
         groups: users,admin,docker
         shell: /bin/bash
     - user:
-        name: prisubs
-        uid: 1019
-        comment: "Prianka Subrahmanyam"
+        name: halmiller
+        uid: 1018
+        comment: "Haley Miller"
         groups: users,admin,docker
         shell: /bin/bash
     - user:
-        name: itong
+        name: Jenniferrrrrr
         uid: 1015
-        comment: "Yitong Chen"
+        comment: "Jennifer Huang"
         groups: users,admin,docker
         shell: /bin/bash
     - user:
-        name: ehuynh
+        name: frankchen
         uid: 1016
-        comment: "Elaine Huynh"
+        comment: "Frank Chen"
         groups: users,admin,docker
         shell: /bin/bash
     - user:
@@ -107,12 +107,6 @@
         name: kwalia
         uid: 1017
         comment: "Kanika Ahluwalia"
-        groups: users,admin,docker
-        shell: /bin/bash
-    - user:
-        name: tiinanguyen
-        uid: 1018
-        comment: "Tina Nguyen"
         groups: users,admin,docker
         shell: /bin/bash
 
@@ -159,25 +153,20 @@
         state: present
         key: https://github.com/bylei.keys
     - authorized_key:
-        user: ehuynh
+        user: Jenniferrrrrr
         state: present
-        key: https://github.com/ehuynh15.keys
+        key: https://github.com/Jenniferrrrrr.keys
     - authorized_key:
-        user: itong
+        user: halmiller
         state: present
-        key: https://github.com/itong1996.keys
+        key: https://github.com/halmiller.keys
     - authorized_key:
-        user: prisubs
+        user: frankchen
         state: present
-        key: https://github.com/prisubs.keys
     - authorized_key: 
         user: kwalia
         state: present
         key: https://github.com/kwalia1999.keys
-    - authorized_key:   
-        user: tiinanguyen
-        state: present
-        key: https://github.com/tiinanguyen.keys
 
     - copy:
         src: charter-school-notebook-server

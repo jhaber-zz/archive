@@ -22,6 +22,7 @@ pip3 install lxml
 pip3 install google
 pip3 install https://github.com/slimkrazy/python-google-places/zipball/master
 pip3 install selenium
+pip3 install scrapy
 ansible-galaxy install cmprescott.chrome
 
 # Processing text:

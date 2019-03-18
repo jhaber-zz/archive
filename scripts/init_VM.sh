@@ -68,6 +68,6 @@ import_NLP_tools
 ansible-playbook jetstream-playbook.yaml
 
 # Initialize git
-git config --global credential.helper 'cache --timeout=3600' # Make GitHub more efficient by caching credentials for an hour, requires less username & PW typing
+git config --global credential.helper 'cache --timeout=10800' # Make GitHub more efficient by caching credentials for three hours, requires less username & PW typing
 git config --global push.default simple # Configure simple git push
 

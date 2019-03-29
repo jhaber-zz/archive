@@ -86,7 +86,7 @@
         groups: users,admin,docker
         shell: /bin/bash
     - user:
-        name: Jenniferrrrrr
+        name: jennifer
         uid: 1015
         comment: "Jennifer Huang"
         groups: users,admin,docker
@@ -153,7 +153,7 @@
         state: present
         key: https://github.com/bylei.keys
     - authorized_key:
-        user: Jenniferrrrrr
+        user: jennifer
         state: present
         key: https://github.com/Jenniferrrrrr.keys
     - authorized_key:

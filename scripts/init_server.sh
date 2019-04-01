@@ -30,7 +30,7 @@ pip install pyldavis # For TM visualization
 # Write and call function to import NLP tools from within Python:
 function import_NLP_tools {
 python - <<END
-import nltk,
+import nltk
 nltk.download('punkt')
 nltk.download('stopwords')
 END

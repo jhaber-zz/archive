@@ -18,6 +18,7 @@ pip install geopandas # For loading shapefiles, doing GIS with matplotlib
 pip install shapely # For graphs
 pip install gensim # For Word2vec and other NLP things
 pip install spacy # For NER, tokenizing, parsing
+spacy download en # For spacy in English
 pip install seaborn # For beautiful graphs (builds on matplotlib)
 pip install Cython # For parallelizing Word2vec etc
 pip install openpyxl # For saving DataFrames in Excel format
@@ -29,7 +30,7 @@ pip install pyldavis # For TM visualization
 # Write and call function to import NLP tools from within Python:
 function import_NLP_tools {
 python - <<END
-import nltk
+import nltk,
 nltk.download('punkt')
 nltk.download('stopwords')
 END

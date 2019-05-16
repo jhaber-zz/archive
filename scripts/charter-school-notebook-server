@@ -1,5 +1,0 @@
-#!/bin/bash
-VOL=${1:-/vol_b/data}
-PORT=$((7000 + $(id -u)))
-NAME=jupyter-${USER}
-docker rm -f $NAME 2>/dev/null ; docker run -d  --name $NAME -p $PORT:$PORT -v ${VOL}:/home/jovyan/work jupyter/datascience-notebook jupyter notebook --ip=0.0.0.0 --port=$PORT ; sleep 3; docker exec $NAME jupyter notebook list | tail -1 | cut -d' ' -f1 | sed s/0.0.0.0/$(hostname -f)/

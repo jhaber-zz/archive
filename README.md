@@ -3,12 +3,6 @@
 ## Do charter schools' ideologies reinforce social inequalities?
 
 ### Generally useful scripts (in "scripts" folder):
-#### Initializing virtual machine (VM) environments
-- `jetstream-playbook.yaml`: Sets up VM user access permissions, such as with Jetstream. 
-- `init_VM.sh`: Installs to VM useful packages & modules for extended bash functionality, HTML parsing, text analysis, and data management not available through the default Ubuntu 16.04 VM image on Jetstream.
-- `init_term.sh`: Installs to custom Jupyter notebook (via terminal) useful packages & modules for HTML parsing, text analysis, and data management not available through the default Ubuntu 16.04 VM image on Jetstream.
-- `charter-school-notebook-server`: Creates Jupyter notebook using custom port and `datascience-notebook` docker environment.
-- For more information on configuring such an environment, contact me at jhaber@berkeley.edu. 
 #### Downloading and parsing 
 - `scraping_URLs.py`: Given search terms, scrapes the best URL using a combination of Google Places API (you'll need an API key from Google) and automated Google searching (Thanks Mario Vilas!).
 - `wget_parallel.py`: Highly customized application of GNU software `parallel` and `wget` to efficiently download to disk the static web contents (no JavaScript) of all URLs in a given CSV.
@@ -16,9 +10,6 @@
 - `data_prep.py`: Loads text from files on disk into `Pandas` DataFrame and saves as CSV. Customized to work with large amounts of data and/or computational settings with limited system memory. 
 #### Text analysis
 - `analysis_prelim.ipynb`: Applies various computational text analysis methods (histograms, topic models, word embeddings) to a small sample of charter schools' website texts.
-- `word_embeddings.ipynb`: Uses word2vec in gensim to train a word embeddings model on the full charter web text corpus. Then uses this model to test the convergent validity of a set of custom dictionaries.
-
-### Useful educational data files: forthcoming
 
 ## Description
 This repo is for data and code related to my dissertation research on charter school identities as analyzed from mission statements (MSs) on their public websites. The code is in Python 3 Jupyter Notebooks and Python scripts.
